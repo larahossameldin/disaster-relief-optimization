@@ -130,10 +130,10 @@ This is called **GA → PSO seeding**
 ---
 
 ### Member 5 — Experiments and Analysis
-**Files:** `experiments/run_experiments.py` and `experiments/analysis.py`
+**Files:** `experiments/run_experiments.py` 
 
 **Your job is to run all the algorithms, collect results, and produce all the plots.**
-
+NOTE: you can write everything in one file or add a sepreate file for plots, where you save the results from expirments in csv files then load them into plots.py for plotting and analysis. whichever you think is neater and easier for you.
 **Tasks:**
 - Run every algorithm configuration 30 times each using seeds 0 through 29.
 - Record the best fitness and convergence speed from each run.
