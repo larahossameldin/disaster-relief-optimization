@@ -265,13 +265,78 @@ Expected output from `FitnessFinal.py`:
 - Test 6 (initialisation): all three strategies produce valid populations
 ---
  
-## Member-Specific Notes
+
  
-### Member 2 (PSO / APSO)
-- Each **particle position** = flat array of length 24
-- Clip positions after velocity update, then call `repair(X.reshape(8,3), sc)`
-- Evaluate with `compute_fitness(particle, sc)`
-- Use `initialise_random` or `initialise_urgency_biased` for your swarm
+### Member 2 (PSO)
+#### `algorithms/pso.py` — Particle Swarm Optimisation
+
+#### What this file does
+
+This file implements a complete, self-contained PSO optimiser for the disaster relief resource allocation problem. Given a scenario (8 regions, 3 resources — food, water, medicine), it finds the allocation matrix that minimises a weighted combination of three objectives: suffering (unmet demand), waste (over-allocation), and delivery difficulty (access cost).
+
+#### How it works
+
+**Representation:** Each particle is a flat 1D vector of length 24 (= 8 regions × 3 resources, column-major order). The `decode()` function from `FitnessFinal.py` converts it back to an (8×3) allocation matrix.
+
+**Fitness:** Calls `compute_fitness()` from `FitnessFinal.py`, which returns `F = w1·f1 + w2·f2 + w3·f3 + penalty`. Lower is better.
+
+**Constraints:** Every new particle position is passed through `repair()` from `constraint.py` immediately after each move, so the swarm always stays in the feasible region.
+
+**Two update rules** (controlled by `bare=True/False`):
+- Canonical PSO — velocity update with inertia, cognitive, and social terms
+- Bare-bones PSO — no velocity; each dimension sampled from a normal distribution centred between the particle's personal best and its neighborhood best
+
+**Two topologies** (controlled by `ring=True/False`):
+- Global (gbest) — every particle is attracted to the single swarm-wide best. Fast convergence, higher risk of getting stuck.
+- Ring (lbest) — each particle only knows its `k` nearest neighbours' bests. Slower but more robust.
+
+**Two inertia schedules:**
+- `LinearInertia(w_start, w_end)` — ω decreases linearly over iterations (default 0.9 → 0.5)
+- `RandomInertia(rng)` — ω drawn randomly from [0.5, 1) each iteration
+
+**Three initialisation strategies** (controlled by `initialization_strategy`):
+- `'random'` — uniform random, broad exploration
+- `'demand_proportional'` — starts near the fair-share demand split
+- `'urgency_biased'` — biases initial allocation toward the most urgent regions
+
+#### How to use it
+
+```python
+from algorithms.pso import PSO, build_all_configs
+from problem.scenarioM import get_scenario
+
+sc = get_scenario()
+
+# Basic run
+pso = PSO(sc, num_particles=30, max_iterations=200, seed=42)
+best_fitness, best_matrix, history = pso.optimize()
+
+# best_fitness  — float, the combined F score (lower = better)
+# best_matrix   — ndarray shape (8, 3), the allocation per region per resource
+# history       — dict with keys:
+#                   "convergence"  list of gbest fitness at each iteration (length = max_iterations + 1)
+#                   "f1_history"   suffering sub-objective per iteration
+#                   "f2_history"   waste sub-objective per iteration
+#                   "f3_history"   delivery sub-objective per iteration
+```
+
+All 22 pre-defined configurations are available via:
+
+```python
+configs = build_all_configs()   # returns list of (label, kwargs) tuples
+for label, kwargs in configs:
+    pso = PSO(sc, max_iterations=200, seed=42, **kwargs)
+    fitness, matrix, history = pso.optimize()
+```
+
+#### For the plotting member
+
+Everything you need is in the `history` dict returned by `optimize()`. Specifically:
+- `history["convergence"]` — plot this against iteration index for the convergence curve. Length is always `max_iterations + 1` (index 0 is the initial swarm state before any updates).
+- `history["f1_history"]`, `history["f2_history"]`, `history["f3_history"]` — same length, plot these to show how each sub-objective evolved separately.
+- `best_matrix` — an (8×3) numpy array. Rows are regions (A–H), columns are food/water/medicine. Use `sc["names"]` for region labels and `sc["resource_order"]` for column labels.
+- To compare configs, run each one and collect their `"convergence"` lists — they're all the same length so they can go on the same axes directly.
+
 ### Member 3 (GA with PyGAD)
 - Each **chromosome** = flat array of length 24
 - PyGAD fitness function must return a **scalar** (higher = better for PyGAD by default — negate if needed, or set `fitness_batch_size`)
