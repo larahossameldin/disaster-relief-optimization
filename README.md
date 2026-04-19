@@ -337,12 +337,62 @@ Everything you need is in the `history` dict returned by `optimize()`. Specifica
 - `best_matrix` — an (8×3) numpy array. Rows are regions (A–H), columns are food/water/medicine. Use `sc["names"]` for region labels and `sc["resource_order"]` for column labels.
 - To compare configs, run each one and collect their `"convergence"` lists — they're all the same length so they can go on the same axes directly.
 
-### Member 3 (GA with PyGAD)
-- Each **chromosome** = flat array of length 24
-- PyGAD fitness function must return a **scalar** (higher = better for PyGAD by default — negate if needed, or set `fitness_batch_size`)
-- Since `compute_fitness` returns lower = better, negate: `return -score`
-- Call `repair` inside your fitness function before evaluating
-- Use `initialise_demand_proportional` for warm starting
+
+
+### Member 3 — Genetic Algorithm
+**File:** `algorithms/ga.py`
+
+#### What this file does
+
+Implements a complete GA optimiser using PyGAD for the disaster relief allocation problem. Finds an (8×3) allocation matrix minimising suffering, waste, and delivery difficulty. Two configs are available, selectable at construction time.
+
+#### Class: `DisasterReliefGA`
+
+````python
+from algorithms.ga import DisasterReliefGA
+from problem.scenarioM import get_scenario
+
+sc = get_scenario()
+
+ga = DisasterReliefGA(
+    scenario_data=sc,
+    config_type="config1",                # "config1" or "config2"
+    init_strategy="Demand_Proportional",  # "Demand_Proportional", "Urgency_Biased", "Random"
+    max_generations=100,
+    population_size=50
+)
+
+best_solution, best_score, convergence, final_population = ga.run()
+```
+
+**Returns:**
+| Variable | Type | Description |
+|---|---|---|
+| `best_solution` | ndarray (24,) | Repaired flat array, column-major order |
+| `best_score` | float | Combined F score — lower is better |
+| `convergence` | list[float] | Best fitness per generation (positive, lower = better) |
+| `final_population` | ndarray (pop_size, 24) | Full final population — needed by the hybrid |
+
+#### Config 1 — Proposed Method
+- **Selection:** Tournament (K=3)
+- **Crossover:** Custom SBX-style blend crossover with α=0.5
+- **Mutation:** Adaptive Gaussian — σ starts at 50 and shrinks linearly to 0 over generations; values clipped to [0, capacity]
+- **Elitism:** Top 2 individuals preserved each generation
+- **Fitness sharing:** Niche-based sharing (σ_share=150, α=1.0) penalises similar individuals to maintain diversity
+
+#### Config 2 — Baseline
+- **Selection:** Roulette wheel (RWS)
+- **Crossover:** Uniform (built-in PyGAD)
+- **Mutation:** Random reset (built-in PyGAD)
+- **Elitism:** None — full generational replacement
+- **Fitness sharing:** Same niche-based sharing as Config 1
+
+#### Repair
+Every offspring is passed through `repair()` from `constraint.py` after mutation, guaranteeing all four constraints (C1 budget, C2 capacity, C3 non-negativity, C4 minimums) are satisfied before fitness evaluation.
+
+#### Stopping criteria
+Early stopping if best fitness does not improve for 20 consecutive generations (`stop_criteria=["saturate_20"]`).
+
 ### Member 4 (Island Model)
 - Each island is an independent PSO or GA population (use Member 2 or 3's code)
 - Migration: extract best solutions as flat arrays, insert into target island population
