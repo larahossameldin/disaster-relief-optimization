@@ -564,6 +564,8 @@ The bridge between the two islands — called every 10 generations.
 ### `run(self)`
 
 The main execution loop.
+
+
 ---
 
 ### `hybrid_DIM_SP_.py` — Dynamic Island Model
