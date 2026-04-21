@@ -420,14 +420,15 @@ Everything you need is in the `history` dict returned by `optimize()`. Specifica
 
 ---
 
-### Member 4 — Hybrid GA → PSO
-# Hybrid GA+PSO Optimization
+# Member 4 — Hybrid GA → PSO
+
+## Hybrid GA+PSO Optimization
 
 Two hybrid algorithms combining Genetic Algorithm (GA) and Particle Swarm Optimization (PSO) for disaster relief resource allocation.
 
 ---
 
-# hybrid_SIM_.py — Static Island Model (GA + PSO Hybrid)
+## 1- hybrid_SIM_.py — Static Island Model (GA + PSO Hybrid)
 
 ## Overview
 
@@ -568,7 +569,7 @@ The main execution loop.
 
 ---
 
-### `hybrid_DIM_SP_.py` — Dynamic Island Model
+## 2- `hybrid_DIM_SP_.py` — Dynamic Island Model
 
 1. **Initialize** — Create one population of 50 individuals using demand-proportional seeding
 2. **Evolve** — Run PSO on the population for 20 generations
