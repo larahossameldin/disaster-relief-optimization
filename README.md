@@ -338,6 +338,43 @@ Everything you need is in the `history` dict returned by `optimize()`. Specifica
 - To compare configs, run each one and collect their `"convergence"` lists — they're all the same length so they can go on the same axes directly.
 
 
+#### Hyperparameter Tuning — PSO
+
+To find the best PSO configuration for this problem, we use **Optuna** — a hyperparameter optimisation framework that is more flexible than scikit-learn's `GridSearchCV`/`RandomizedSearchCV` because it does not require a sklearn-compatible model. You simply define an objective function that runs your algorithm and returns a score, and Optuna handles the rest.
+
+#### Search Strategy
+
+We use **TPE (Tree-structured Parzen Estimator)**, Optuna's default and most powerful sampler. Rather than searching randomly or exhaustively, TPE builds a probabilistic model from completed trials and uses it to propose configurations more likely to improve on the current best — making it significantly more sample-efficient than random search.
+
+The first 10 trials are random warm-up to seed the model, after which TPE guides the remaining 40 trials intelligently.
+
+### Parameters Tuned
+
+| Parameter | Type | Range / Options |
+|---|---|---|
+| `num_particles` | int | 10 – 80 |
+| `c1` | float | 0.3 – 3.0 |
+| `c2` | float | 0.3 – 3.0 |
+| `inertia` | categorical | `linear`, `random` |
+| `bare` | categorical | `True`, `False` |
+| `bare_prob` | float | 0.3 – 0.95 *(only when `bare=True`)* |
+| `ring` | categorical | `True`, `False` |
+| `neighbors` | int | 2 – 8 *(only when `ring=True`)* |
+| `initialization_strategy` | categorical | `random`, `demand_proportional`, `urgency_biased` |
+
+`bare_prob` and `neighbors` are **conditionally sampled** — they are only explored when the parameter they depend on is active, keeping the search space tight and avoiding wasted trials on irrelevant combinations.
+
+#### Noise Reduction
+
+Each trial runs PSO **3 times with different random seeds** and returns the mean fitness. This reduces the effect of lucky or unlucky initialisation and gives Optuna a more reliable signal to optimise against.
+
+#### Output
+
+Running `hyperparameterTuningPSO.py` will print a trial log, display the top 5 configurations found, and save a convergence plot to `experiments/plots/tpe_convergence.png`.
+
+```
+python experiments/hyperparameterTuningPSO.py
+```
 ### Member 3 (GA with PyGAD)
 - Each **chromosome** = flat array of length 24
 - PyGAD fitness function must return a **scalar** (higher = better for PyGAD by default — negate if needed, or set `fitness_batch_size`)
