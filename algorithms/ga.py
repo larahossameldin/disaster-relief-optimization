@@ -46,12 +46,12 @@ class DisasterReliefGA:
             return -shared_score
         return -rawScore
 
-    def crossover(self, parents, offspring_size, ga_instance):
+    def blx(self, parents, offspring_size, ga_instance):
         offspring = []
         idx = 0
-        alpha = 0.5
-        Li = 0
-
+        # alpha=0.3 restricts exploration to 30% beyond the [min_val, max_val] interval
+        # reducing the chance of generating infeasible values that require heavy repair
+        alpha = 0.3
         while len(offspring) < offspring_size[0]:
             parent1 = parents[idx % parents.shape[0], :]
             parent2 = parents[(idx + 1) % parents.shape[0], :]
@@ -63,26 +63,30 @@ class DisasterReliefGA:
                 u = np.random.rand()
                 gamma = (1 + 2 * alpha) * u - alpha
                 zi = (1 - gamma) * min_val + gamma * max_val
-
-                if zi < Li:
-                    child[i] = Li
-                else:
-                    child[i] = zi
+                child[i] = zi
 
             offspring.append(child)
             idx += 2
 
         return np.array(offspring)
 
-    def mutate(self, offspring, ga_instance):
-        mutation_rate = 0.1
+    def nonuniform_mutate(self, offspring, ga_instance):
+        # we need ONE best allocation plan not a fit population
+        # so we pick the upper bound (1/chr_len) for better search space coverage
+        chromosome_length = offspring.shape[1]
+        mutation_rate = 1 / chromosome_length
         initial_sigma = 50
         decay_factor = 1.0 - (ga_instance.generations_completed / self.max_generations)
-        dynamic_sigma = initial_sigma * decay_factor
-        Li = 0
+        dynamic_sigma = initial_sigma * decay_factor     # step size shrinks as generations progress ( wide exploration early , fine-tuning near the end )
         for i in range(offspring.shape[0]):
             for j in range(offspring.shape[1]):
-                Ui = self.scenario_data["capacity"][j % self.scenario_data["n_regions"]]     # ?
+                region_index = j // 3
+                resource_index = j % 3
+                # upper bound per gene can't exceed region capacity or resource budget
+                Ui = min(self.scenario_data["capacity"][region_index], self.scenario_data["budget_array"][resource_index])
+                #align lower bound with problem-defined minimum allocation
+                #this reduces constraint violations at the source and minimizes
+                Li = self.scenario_data["minimums"][region_index][resource_index]
                 r = np.random.rand()
                 if r < mutation_rate:
                     mutation_size = np.random.normal(0, dynamic_sigma)
@@ -93,26 +97,52 @@ class DisasterReliefGA:
                         offspring[i, j] = Ui
                     else:
                         offspring[i, j] = mutated_val
-        return self.repair(offspring)
+        return np.array(offspring)
 
-    def repair(self, offspring):
+    def uniform_mutate(self, offspring, ga_instance):
+        chromosome_length = offspring.shape[1]
+        mutation_rate = 1 / chromosome_length
+
         for i in range(offspring.shape[0]):
-            offspring[i] = repair_solution(offspring[i], self.scenario_data).flatten(order='F')
-        return offspring
+            for j in range(offspring.shape[1]):
+                region_index = j // 3
+                resource_index = j % 3
+                Ui = min(self.scenario_data["capacity"][region_index],self.scenario_data["budget_array"][resource_index])
+                Li = self.scenario_data["minimums"][region_index][resource_index]
+                r = np.random.rand()
+                if r < mutation_rate:
+                    offspring[i, j] = np.random.uniform(Li, Ui)
+
+        return np.array(offspring)
+
+    # i kept repair_population separate so it can be reused anywhere
+    # on_generation_complete is just a PyGAD hook that calls it after each generation
+    # this keeps the code cleaner and avoids repeating the repair logic
+
+    def repair_population(self, population_array):
+        # it go through each solution in the population and fix any constraint violations
+        for i in range(population_array.shape[0]):
+            population_array[i] = repair_solution(population_array[i], self.scenario_data).flatten(order='F')
+        return population_array
+
+    def on_generation_complete(self, ga_instance):
+        # this runs after each generation to make sure all solutions are valid before moving on
+        ga_instance.population = self.repair_population(ga_instance.population)
+
 
     def run(self):
         population = self.initialize_population()
         if self.config_type == "config1":
             parent_selection = "tournament"
             K_tourn = 3
-            crossover_type = self.crossover
-            mutation_type = self.mutate
+            crossover_type = self.blx
+            mutation_type = self.nonuniform_mutate
             elitism = 2
         else:
             parent_selection = "rws"
             K_tourn = None
             crossover_type = "uniform"
-            mutation_type = "random"
+            mutation_type = self.uniform_mutate
             elitism = 0
         self.ga_instance = pygad.GA(
             num_generations=self.max_generations,
@@ -124,7 +154,8 @@ class DisasterReliefGA:
             crossover_type=crossover_type,
             mutation_type=mutation_type,
             keep_elitism=elitism,
-            stop_criteria=["saturate_20"]
+            stop_criteria=["saturate_20"],
+            on_generation=self.on_generation_complete
         )
 
         self.ga_instance.run()
@@ -135,19 +166,19 @@ class DisasterReliefGA:
         FinalPopulation = self.ga_instance.population
 
         if self.config_type == "config1":
-            Best_Position, _, _ = self.ga_instance.best_solution()
-            BestSolution = Best_Position
+            best_position, _, _ = self.ga_instance.best_solution()
+            best_solution = best_position
 
         elif self.config_type == "config2":
             final_fitnesses = self.ga_instance.last_generation_fitness
             best_idx = np.argmax(final_fitnesses)
-            BestSolution = FinalPopulation[best_idx]
+            best_solution = FinalPopulation[best_idx]
 
-        Final_Repaired_Solution = repair_solution(BestSolution, self.scenario_data).flatten(order='F')
-        Final_Score, _ = compute_fitness(Final_Repaired_Solution, self.scenario_data)
-        Convergence_History = [-fit for fit in self.ga_instance.best_solutions_fitness]
+        final_repaired_solution = repair_solution(best_solution, self.scenario_data).flatten(order='F')
+        final_score, _ = compute_fitness(final_repaired_solution, self.scenario_data)
+        convergence_history = [-fit for fit in self.ga_instance.best_solutions_fitness]
 
-        return Final_Repaired_Solution, Final_Score, Convergence_History, FinalPopulation
+        return final_repaired_solution, final_score, convergence_history, FinalPopulation
 
 
 if __name__ == "__main__":

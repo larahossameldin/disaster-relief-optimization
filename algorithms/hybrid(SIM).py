@@ -106,8 +106,8 @@ class StaticIslandHybrid:
         
         fake_ga = type('obj', (), {'population': self.ga.population, 
                                   'generations_completed': self.ga_generation})()
-        offspring = self.ga.crossover(parents, (n, self.dim), fake_ga)
-        offspring = self.ga.mutate(offspring, fake_ga)
+        offspring = self.ga.blx(parents, (n, self.dim), fake_ga)
+        offspring = self.ga.nonuniform_mutate(offspring, fake_ga)
         
         best_indices = np.argsort(scores)[:4]
         for i in range(4):
