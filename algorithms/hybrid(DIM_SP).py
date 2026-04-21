@@ -181,8 +181,8 @@ class Island:
             scores = self._eval_all()
             parents = self._tourn_select(scores)
             fake = _FakeGA(self.population, self._generation)
-            offspring = self._ga_helper.crossover(parents, (self.n, self.dim), fake)
-            offspring = self._ga_helper.mutate(offspring, fake)
+            offspring = self._ga_helper.blx(parents, (self.n, self.dim), fake)
+            offspring = self._ga_helper.nonuniform_mutate(offspring, fake)
             best_old = int(np.argmin(scores))
             offspring[0] = self.population[best_old]
             self.population = offspring
