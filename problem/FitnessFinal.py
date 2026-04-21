@@ -175,6 +175,8 @@ def compute_norm_constants(scenario):
 
 def compute_fitness(solution, scenario, f1_mode=F1_MODE, beta=BETA,
                     w1=W1, w2=W2, w3=W3, norm=None):
+    if norm is None:
+        norm = compute_norm_constants(scenario)
     """
     Compute the combined fitness  F = w1*f1 + w2*f2 + w3*f3 + penalty.
 
