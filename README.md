@@ -421,53 +421,52 @@ Everything you need is in the `history` dict returned by `optimize()`. Specifica
 ---
 
 ### Member 4 — Hybrid GA → PSO
-**File:** `algorithms/hybrid.py`
+# Hybrid GA+PSO Optimization
 
-**Your job is to combine GA and PSO into a hybrid system.  
-Wait for Members 2 and 3 before final integration.**
-
----
-
-## Option 1: Sequential Hybrid (Simpler)
-
-### Idea:
-- GA explores broadly
-- PSO refines the best solution
-
-### Steps:
-1. Run GA for ~100 generations
-2. Take the best GA solution
-3. Use it to initialise PSO (as starting particle or part of swarm)
-4. Run PSO for ~100 iterations
-5. Return best result
-
-This is called **GA → PSO seeding**
+Two hybrid algorithms combining Genetic Algorithm (GA) and Particle Swarm Optimization (PSO) for disaster relief resource allocation.
 
 ---
 
-## Option 2: Island Model (Advanced)
+## Files
 
-### Idea:
-- Run GA and PSO in parallel
-- Occasionally exchange solutions
+### `hybrid_DIM_SP_.py` — Dynamic Island Model
+Splits the population into clusters dynamically every few generations using spectral clustering, then runs GA or PSO on each cluster depending on its size.
 
-### Steps:
-1. Run GA and PSO independently
-2. Every N iterations (e.g. 10):
-   - Send GA best → PSO
-   - Send PSO best → GA
-3. Continue until end
-4. Return best overall result
+### `hybrid_SIM_.py` — Static Island Model
+Runs GA and PSO as two separate populations in parallel, periodically swapping their best solutions with each other.
 
 ---
 
-**Tips:**
-- Import `run_ga` from `algorithms/ga.py` and `run_pso` from `algorithms/pso.py`.
-- Test that the hybrid performs better than either algorithm alone.
+## Pipeline
 
-> **You are completely free to structure and implement this however you think is best. The above is just a starting point.**
+### `hybrid_DIM_SP_.py` — Dynamic Island Model
+
+1. **Initialize** — Create one population of 50 individuals using demand-proportional seeding
+2. **Evolve** — Run PSO on the population for 20 generations
+3. **Re-cluster** — Merge all individuals, apply spectral clustering to split them into up to 5 groups based on similarity
+4. **Assign operators** — Large clusters get PSO, small clusters get GA
+5. **Evolve each island** — Each cluster evolves independently for another 20 generations
+6. **Repeat steps 3–5** until 100 generations are done
+7. **Return** the best solution found across all islands
+
+> If an island stops improving for 3 epochs, it automatically injects random perturbations to escape local optima.
 
 ---
+
+### `hybrid_SIM_.py` — Static Island Model
+
+1. **Initialize** — Create two separate populations of 50 individuals each (one for GA, one for PSO)
+2. **Evolve in parallel** — At every generation, run one GA step and one PSO step independently
+3. **Exchange** — Every 10 generations, the best solution from GA is injected into PSO (replacing its worst individual), and vice versa — but only if it actually improves the receiving population
+4. **Repeat steps 2–3** until 100 generations are done
+5. **Return** the best solution found across both islands
+
+> The key difference from DIM-SP: the two islands never merge or restructure — they stay fixed throughout, just sharing good solutions occasionally.
+
+## Dependencies
+- `numpy`
+- `problem.scenarioM`, `problem.FitnessFinal`, `problem.constraint`
+- `algorithms.ga`, `algorithms.pso`
 
 ### Member 5 — Experiments and Analysis
 **Files:** `experiments/run_experiments.py` 
