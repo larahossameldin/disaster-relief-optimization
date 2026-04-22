@@ -53,21 +53,9 @@ No circular imports. No missing links. All three files must be in the **same fol
 ---
  
 ## Quick-Start for All Teammates
+
  
-### Step 1 — Put all files in the same directory
-```
-your_project/
-├── scenarioM.py
-├── constraint.py
-├── FitnessFinal.py
-├── your_pso.py        ← Member 2
-├── your_ga.py         ← Member 3
-├── island_model.py    ← Member 4
-├── experiment_runner.py ← Member 5
-└── app.py             ← Member 6 (Streamlit)
-```
- 
-### Step 2 — Install dependencies
+### Step 1 — Install dependencies
 ```bash
 pip install numpy
 ```
@@ -382,92 +370,15 @@ python experiments/hyperparameterTuningPSO.py
 - Call `repair` inside your fitness function before evaluating
 - Use `initialise_demand_proportional` for warm starting
 ### Member 4 (Island Model)
-- Each island is an independent PSO or GA population (use Member 2 or 3's code)
-- Migration: extract best solutions as flat arrays, insert into target island population
-- All islands share the same `sc` scenario object (it's read-only, no thread issues)
-- Use different seeds per island for diversity
-### Member 5 (Experiment Runner)
-- Import `get_scenario` once, pass `sc` to all runs
-- Save `details` dict from `compute_fitness` to CSV (f1, f2, f3, F, penalty per generation)
-- Use seeds list: `SEEDS = list(range(30))` and pass `seed=SEEDS[run]`
-### Member 6 (Streamlit UI)
-- `get_scenario()` is fast — safe to call on app startup
-- Display `sc["names"]`, `sc["demand"]`, `sc["budgets"]` as tables
-- Show `details["f1"]`, `details["f2"]`, `details["f3"]` as bar charts after optimisation
-- `is_feasible(X, sc)` can show a green/red feasibility indicator
----
- 
-## Scenario Data at a Glance
- 
-| Region | Population | Need | Urgency | Access Difficulty | Capacity |
-|---|---|---|---|---|---|
-| A | 8,000 | 0.90 | 0.95 | 0.30 (easy) | 400 |
-| B | 3,000 | 0.70 | 0.60 | 0.80 (hard) | 200 |
-| C | 6,000 | 0.85 | 0.90 | 0.50 | 350 |
-| D | 2,000 | 0.40 | 0.30 | 0.90 (very hard) | 150 |
-| E | 7,000 | 0.95 | 0.98 | 0.20 (easy) | 450 |
-| F | 4,000 | 0.60 | 0.50 | 0.70 (hard) | 250 |
-| G | 5,000 | 0.75 | 0.70 | 0.40 | 300 |
-| H | 1,500 | 0.50 | 0.40 | 0.95 (very hard) | 100 |
- 
-**Budgets:** Food = 1000, Water = 800, Medicine = 600
- 
----
-
-### Member 2 — PSO
-**File:** `algorithms/pso.py`
-
-**Your job is to implement the particle swarm optimisation algorithm.**
-
-**Tasks:**
-- Implement Standard PSO — particles move through the solution space guided by their personal best and the global best.
-- Implement APSO — same as PSO but the inertia weight shrinks from 0.9 to 0.4 over time.
-- Define three configurations to compare: Config A (swarm=20, fixed ω=0.9), Config B (swarm=30, fixed ω=0.7), Config C (APSO, swarm=50).
-
-**Tips:**
-- Import the fitness function from `problem/fitness.py`.
-- Every run should accept a `seed` parameter so results are reproducible.
-- Return `best_position`, `best_fitness`, and `convergence` (list of best fitness per iteration) from every run.
-- Test that running with the same seed twice gives the exact same result.
-- Test that fitness goes down over iterations, not up.
-
-> **You are completely free to structure and implement this however you think is best. The above is just a starting point.**
-
----
-
-### Member 3 — Genetic Algorithm
-**File:** `algorithms/ga.py`
-
-**Your job is to implement the genetic algorithm using the PyGAD library.**
-
-**Tasks:**
-- Implement GA Config 1: tournament selection, single-point crossover, Gaussian mutation, elitism.
-- Implement GA Config 2: roulette wheel selection, uniform crossover, random reset mutation, generational replacement.
-- Add fitness sharing to Config 2 to keep diversity in the population.
-- Add a repair step so every individual always has valid allocations after each generation.
-
-**Tips:**
-- Install PyGAD: `pip install pygad`.
-- PyGAD maximises by default — return the negative of your fitness score to turn it into minimisation.
-- Fitness sharing means penalising individuals that are too similar to each other — this stops the whole population converging to the same spot.
-- Return `best_position`, `best_fitness`, `convergence`, and `final_population` — the hybrid needs the final population.
-- Test that allocations still sum to the budget after several generations.
-
-> **You are completely free to structure and implement this however you think is best. The above is just a starting point.**
-
----
-
-# Member 4 — Hybrid GA → PSO
-
-## Hybrid GA+PSO Optimization
+#### Hybrid GA+PSO Optimization
 
 Two hybrid algorithms combining Genetic Algorithm (GA) and Particle Swarm Optimization (PSO) for disaster relief resource allocation.
 
 ---
 
-## 1- hybrid_SIM_.py — Static Island Model (GA + PSO Hybrid)
+#### 1- hybrid_SIM_.py — Static Island Model (GA + PSO Hybrid)
 
-## Overview
+#### Overview
 
 This module implements a **Static Island Hybrid** optimizer that runs a Genetic Algorithm (GA) and Particle Swarm Optimization (PSO) in parallel on two separate "islands." Both algorithms work on the same disaster relief resource allocation problem, occasionally sharing their best solutions with each other to improve convergence.
 
@@ -475,7 +386,7 @@ The **island model** prevents either algorithm from getting stuck in a local opt
 
 ---
 
-## Pipeline
+#### Pipeline
 
 1. **Initialize** — Create two separate populations of 50 individuals each (one for GA, one for PSO)
 2. **Evolve in parallel** — At every generation, run one GA step and one PSO step independently
@@ -487,7 +398,7 @@ The **island model** prevents either algorithm from getting stuck in a local opt
 
 ---
 
-## Configuration Parameters
+#### Configuration Parameters
 
 | Parameter | Value | Meaning |
 |---|---|---|
@@ -499,13 +410,13 @@ The **island model** prevents either algorithm from getting stuck in a local opt
 
 ---
 
-## Class: `StaticIslandHybrid`
+#### Class: `StaticIslandHybrid`
 
 The main class that orchestrates the entire hybrid run.
 
 ---
 
-### `__init__(self, scenario)`
+##### `__init__(self, scenario)`
 
 Sets up both islands from scratch.
 
@@ -517,7 +428,7 @@ Sets up both islands from scratch.
 
 ---
 
-### `_get_fitnesses(self, population)`
+##### `_get_fitnesses(self, population)`
 
 Evaluates every individual in a population.
 
@@ -527,7 +438,7 @@ Evaluates every individual in a population.
 
 ---
 
-### `_update_ga_best(self)`
+##### `_update_ga_best(self)`
 
 Finds and stores the best solution currently in the GA island.
 
@@ -536,7 +447,7 @@ Finds and stores the best solution currently in the GA island.
 
 ---
 
-### `_update_pso_best(self)`
+##### `_update_pso_best(self)`
 
 Same as above, but for the PSO island.
 
@@ -545,7 +456,7 @@ Same as above, but for the PSO island.
 
 ---
 
-### `_update_global_best(self)`
+##### `_update_global_best(self)`
 
 Maintains the single best solution found across both islands combined.
 
@@ -554,7 +465,7 @@ Maintains the single best solution found across both islands combined.
 
 ---
 
-### `ga_step(self)`
+##### `ga_step(self)`
 
 Runs one generation of the Genetic Algorithm.
 
@@ -566,7 +477,7 @@ Runs one generation of the Genetic Algorithm.
 
 ---
 
-### `pso_step(self)`
+##### `pso_step(self)`
 
 Runs one iteration of Particle Swarm Optimization with **adaptive parameters** that shift over time:
 
@@ -585,7 +496,7 @@ For each particle each iteration:
 
 ---
 
-### `exchange_solutions(self)`
+##### `exchange_solutions(self)`
 
 The bridge between the two islands — called every 10 generations.
 
@@ -599,14 +510,14 @@ The bridge between the two islands — called every 10 generations.
 
 ---
 
-### `run(self)`
+##### `run(self)`
 
 The main execution loop.
 
 
 ---
 
-## 2- `hybrid_DIM_SP_.py` — Dynamic Island Model
+#### 2- `hybrid_DIM_SP_.py` — Dynamic Island Model
 
 1. **Initialize** — Create one population of 50 individuals using demand-proportional seeding
 2. **Evolve** — Run PSO on the population for 20 generations
@@ -619,13 +530,13 @@ The main execution loop.
 > If an island stops improving for 3 epochs, it automatically injects random perturbations to escape local optima.
 
 
-## Overview
+#### Overview
 
 This file implements **DIM-SP** (Dynamic Island Model with Spectral Partitioning), a hybrid metaheuristic optimization algorithm designed for **disaster relief supply chain problems**. It combines two classical optimization algorithms — **Genetic Algorithm (GA)** and **Particle Swarm Optimization (PSO)** — inside a dynamic island model framework. Islands (sub-populations) are discovered and reorganized at regular intervals using **Spectral Clustering**, which groups individuals by similarity in the solution space. Large islands evolve using PSO; small islands evolve using GA. This adaptive strategy allows the algorithm to escape local optima and balance exploration with exploitation throughout the optimization process.
 
 ---
 
-## High-Level Architecture
+#### High-Level Architecture
 
 ```
 Initial Population
@@ -647,7 +558,7 @@ Initial Population
 
 ---
 
-## Global Constants (Hyperparameters)
+#### Global Constants (Hyperparameters)
 
 These constants control the overall behavior of the algorithm. They are defined at the top of the file and can be tuned to balance speed, diversity, and solution quality.
 
@@ -664,9 +575,9 @@ These constants control the overall behavior of the algorithm. They are defined 
 
 ---
 
-## Functions
+#### Functions
 
-### `build_similarity_matrix(population, sigma=SIGMA)`
+##### `build_similarity_matrix(population, sigma=SIGMA)`
 
 **Purpose:** Constructs a symmetric similarity (affinity) matrix between every pair of individuals in the population. This matrix is the foundation of spectral clustering.
 
@@ -687,7 +598,7 @@ W[i,j] = exp( -||x_i - x_j||² / (2 * sigma² * dim) )
 
 ---
 
-### `spectral_cluster(population, fitnesses, max_k, sigma, min_size, scenario)`
+##### `spectral_cluster(population, fitnesses, max_k, sigma, min_size, scenario)`
 
 **Purpose:** Partitions the merged population into a dynamic number of sub-populations (islands) using **spectral clustering**. The number of clusters is chosen automatically based on the eigenvalue gap heuristic.
 
@@ -711,7 +622,7 @@ W[i,j] = exp( -||x_i - x_j||² / (2 * sigma² * dim) )
 
 ---
 
-### `_kmeans(X, k, max_iters=50)`
+##### `_kmeans(X, k, max_iters=50)`
 
 **Purpose:** Applies the **k-means++ clustering algorithm** on the spectral embedding space to assign each individual to one of `k` clusters.
 
@@ -729,9 +640,9 @@ W[i,j] = exp( -||x_i - x_j||² / (2 * sigma² * dim) )
 
 ---
 
-## Classes
+#### Classes
 
-### `Island`
+##### `Island`
 
 **Purpose:** Represents a single sub-population (island) within the DIM-SP framework. Each island maintains its own population, best solution tracking, stagnation counter, and evolves independently using either GA or PSO.
 
@@ -750,7 +661,7 @@ W[i,j] = exp( -||x_i - x_j||² / (2 * sigma² * dim) )
 - `_gbest_x` / `_gbest_f` — PSO global best position and fitness (island-local).
 - `_inertia` — `LinearInertia` object from the PSO module that linearly decreases the inertia weight from 0.9 to 0.4 over the run.
 
-#### `Island._eval_all()`
+###### `Island._eval_all()`
 
 **Purpose:** Evaluates the fitness of every individual in the current island population.
 
@@ -758,7 +669,7 @@ W[i,j] = exp( -||x_i - x_j||² / (2 * sigma² * dim) )
 
 ---
 
-#### `Island._refresh_best()`
+###### `Island._refresh_best()`
 
 **Purpose:** After each generation step, checks whether any individual has beaten the current island best and updates tracking state accordingly.
 
@@ -766,7 +677,7 @@ W[i,j] = exp( -||x_i - x_j||² / (2 * sigma² * dim) )
 
 ---
 
-#### `Island._inject_diversity()`
+###### `Island._inject_diversity()`
 
 **Purpose:** Prevents premature convergence by introducing new genetic material when the island has been stagnant for too long.
 
@@ -780,7 +691,7 @@ For PSO islands, the velocities of replaced individuals are also randomized in `
 
 ---
 
-#### `Island._ga_step(n_gens)`
+###### `Island._ga_step(n_gens)`
 
 **Purpose:** Runs `n_gens` generations of GA evolution on the island population.
 
@@ -795,7 +706,7 @@ For PSO islands, the velocities of replaced individuals are also randomized in `
 
 ---
 
-#### `Island._tourn_select(scores, k=3)`
+###### `Island._tourn_select(scores, k=3)`
 
 **Purpose:** Implements **tournament selection** for parent selection in GA evolution.
 
@@ -807,7 +718,7 @@ For PSO islands, the velocities of replaced individuals are also randomized in `
 
 ---
 
-#### `Island._pso_step(n_steps)`
+###### `Island._pso_step(n_steps)`
 
 **Purpose:** Runs `n_steps` iterations of **Particle Swarm Optimization** on the island population.
 
@@ -831,13 +742,13 @@ where `c1 = c2 = 1.5` (cognitive and social acceleration coefficients), and `r1`
 
 ---
 
-#### `Island.evolve(n_steps)`
+###### `Island.evolve(n_steps)`
 
 **Purpose:** Public interface for running evolution on the island. Dispatches to either `_pso_step` or `_ga_step` based on the island's assigned `operator`.
 
 ---
 
-### `_FakeGA`
+##### `_FakeGA`
 
 **Purpose:** A minimal shim that mimics enough of the `DisasterReliefGA` interface to allow `Island._ga_step()` to call the crossover and mutation operators from the GA module without instantiating or running a full GA pipeline.
 
@@ -849,7 +760,7 @@ where `c1 = c2 = 1.5` (cognitive and social acceleration coefficients), and `r1`
 
 ---
 
-### `DIMSPHybrid`
+##### `DIMSPHybrid`
 
 **Purpose:** The top-level orchestrator. Manages the full lifecycle of the DIM-SP algorithm: initialization, epoch-based re-clustering, per-island evolution, and global best tracking.
 
@@ -871,7 +782,7 @@ where `c1 = c2 = 1.5` (cognitive and social acceleration coefficients), and `r1`
 - `island_count_hist` — List recording how many islands were active at each epoch.
 - `best_solution` / `best_score` — The globally best solution found across all islands and all epochs.
 
-#### `DIMSPHybrid._run_epoch(current_gen)`
+###### `DIMSPHybrid._run_epoch(current_gen)`
 
 **Purpose:** The re-clustering step. Called at the start of every epoch after the first. Merges all island populations into one pool, re-runs spectral clustering to discover natural groupings, and rebuilds islands with appropriate operators.
 
@@ -887,13 +798,13 @@ where `c1 = c2 = 1.5` (cognitive and social acceleration coefficients), and `r1`
 
 ---
 
-#### `DIMSPHybrid._update_global_best()`
+###### `DIMSPHybrid._update_global_best()`
 
 **Purpose:** Scans all active islands and updates the global best solution and score if any island has found a better solution than what has been seen so far.
 
 ---
 
-#### `DIMSPHybrid.run()`
+###### `DIMSPHybrid.run()`
 
 **Purpose:** Main execution loop. Runs the full DIM-SP optimization.
 
@@ -910,9 +821,9 @@ where `c1 = c2 = 1.5` (cognitive and social acceleration coefficients), and `r1`
 
 ---
 
-## Parameters Borrowed from GA and PSO Modules
+#### Parameters Borrowed from GA and PSO Modules
 
-### From `DisasterReliefGA` (GA module)
+##### From `DisasterReliefGA` (GA module)
 
 | Parameter / Method | Where Used | Why |
 |---|---|---|
@@ -922,7 +833,7 @@ where `c1 = c2 = 1.5` (cognitive and social acceleration coefficients), and `r1`
 | `init_strategy = "Demand_Proportional"` | `Island.__init__()` | Required to instantiate `DisasterReliefGA` (even though the island does not run the full GA pipeline); the GA helper is used only for its operators. |
 | Tournament selection (`k=3`) | `Island._tourn_select()` | Implemented locally but mirrors the GA module's tournament selection logic to maintain consistency. |
 
-### From `PSO` (PSO module)
+##### From `PSO` (PSO module)
 
 | Parameter / Method | Where Used | Why |
 |---|---|---|
@@ -931,7 +842,7 @@ where `c1 = c2 = 1.5` (cognitive and social acceleration coefficients), and `r1`
 | Velocity clamping (implicit via `repair`) | `Island._pso_step()` | After each velocity update, positions are passed through `repair()` to enforce feasibility constraints. This effectively acts as position clamping — a standard PSO stabilization technique. |
 | `ring=True` topology (conceptually) | `Island` model | The island model itself acts as a **ring topology** — each island is a local neighborhood that shares information only at re-clustering epochs, preventing premature global convergence. |
 
-### From `problem.FitnessFinal`
+##### From `problem.FitnessFinal`
 
 | Import | Role |
 |---|---|
@@ -948,7 +859,7 @@ where `c1 = c2 = 1.5` (cognitive and social acceleration coefficients), and `r1`
 
 ---
 
-## `__main__` Block — Benchmark Comparison
+#### `__main__` Block — Benchmark Comparison
 
 When run directly, the script performs a controlled comparison between:
 
@@ -966,7 +877,7 @@ A positive value means the hybrid found a better solution than either standalone
 
 ---
 
-## Initialization Strategies
+#### Initialization Strategies
 
 The `init_strategy` parameter in `DIMSPHybrid` controls how the initial population is generated. All three strategies produce **feasible** solutions (i.e., they satisfy problem constraints before evolution begins):
 
@@ -978,7 +889,7 @@ The `init_strategy` parameter in `DIMSPHybrid` controls how the initial populati
 
 ---
 
-## Convergence Behavior
+#### Convergence Behavior
 
 - **Early epochs:** One large island evolves with PSO, exploring the solution space broadly.
 - **After first re-clustering:** Population splits into specialized islands. Large islands (PSO) continue broad exploration; small islands (GA) exploit promising regions more precisely via crossover.
@@ -987,7 +898,7 @@ The `init_strategy` parameter in `DIMSPHybrid` controls how the initial populati
 
 ---
 
-## Dependencies
+#### Dependencies
 
 | Module | Source | Role |
 |---|---|---|
@@ -1000,6 +911,7 @@ The `init_strategy` parameter in `DIMSPHybrid` controls how the initial populati
 | `algorithms.pso.LinearInertia` | Local | Inertia weight schedule for island PSO |
 
 ---
+
 
 ### Member 5 — Experiments and Analysis
 **Files:** `experiments/run_experiments.py` 
