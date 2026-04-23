@@ -363,12 +363,677 @@ Running `hyperparameterTuningPSO.py` will print a trial log, display the top 5 c
 ```
 python experiments/hyperparameterTuningPSO.py
 ```
-### Member 3 (GA with PyGAD)
-- Each **chromosome** = flat array of length 24
-- PyGAD fitness function must return a **scalar** (higher = better for PyGAD by default — negate if needed, or set `fitness_batch_size`)
-- Since `compute_fitness` returns lower = better, negate: `return -score`
-- Call `repair` inside your fitness function before evaluating
-- Use `initialise_demand_proportional` for warm starting
+# Member 3 (GA with PyGAD)
+### *An Evolutionary Optimization Engine for Emergency Resource Allocation*
+
+
+---
+
+## What Is This?
+
+**DisasterReliefGA** is a Genetic Algorithm that solves a real-world constrained optimization problem: *how do you allocate limited emergency resources across multiple disaster-hit regions as effectively as possible?*
+
+It evolves a population of allocation plans generation by generation, using custom-designed operators built specifically for this problem — smart crossover, bounded mutation, and fitness sharing to avoid premature convergence.
+
+---
+
+## Project Structure
+
+```
+disaster-relief-optimization/
+├── algorithms/
+│   ├── ga.py                      ← Main GA engine (start here)
+│   ├── pso.py
+│   ├── hybrid(DIM_SP).py
+│   └── hybrid(SIM).py
+├── experiments/
+│   ├── plots/
+│   ├── run_experiments.py
+│   └── hyperparameterTuningPSO.py
+├── problem/
+│   ├── scenarioM.py               ← Scenario data loader
+│   ├── FitnessFinal.py            ← Fitness function + initialization strategies
+│   └── constraint.py              ← Repair function for constraint violations
+├── ui/
+│   └── app.py
+├── .gitignore
+└── README.md
+```
+
+---
+
+## Quick Start
+
+**Step 1 — Install dependencies**
+
+```bash
+pip install numpy pygad
+```
+
+**Step 2 — Run the ablation study** *(from the project root)*
+
+```bash
+python experiments/run_experiments.py
+```
+
+> ⚠️ Run from the **root directory** — not from inside `experiments/`. Otherwise the `problem/` imports will fail.
+
+**To run the GA engine directly:**
+
+```bash
+python algorithms/ga.py
+```
+
+**To launch the UI:**
+
+```bash
+python ui/app.py
+```
+
+---
+
+## Running Your Own Experiments
+
+Instantiate `DisasterReliefGA` directly for custom runs:
+
+```python
+from algorithms.ga import DisasterReliefGA
+from problem.scenarioM import get_scenario
+
+scenario = get_scenario()
+
+optimizer = DisasterReliefGA(
+    scenario_data=scenario,
+    config_type="baseline",
+    init_strategy="Demand_Proportional",
+    max_generations=150,
+    population_size=100,
+    crossover_prob=0.75
+)
+
+solution, score, history, final_pop = optimizer.run()
+print(f"Final Score: {score:.4f}")
+```
+
+### What `.run()` Returns
+
+| Return Value  | Type           | Description                                           |
+|---------------|----------------|-------------------------------------------------------|
+| `solution`    | `np.ndarray`   | Best allocation plan found (repaired & validated)     |
+| `score`       | `float`        | Final fitness score                                   |
+| `history`     | `list[float]`  | Best score per generation — use for convergence plots |
+| `final_pop`   | `np.ndarray`   | Full population at the last generation                |
+
+---
+
+## Parameters Reference
+
+### `config_type` — Operator Architecture
+
+Defines which combination of genetic operators the algorithm uses.
+
+| Value                 | Selection       | Crossover          | Mutation      | Elitism | Notes                         |
+|-----------------------|-----------------|--------------------|---------------|---------|-------------------------------|
+| `"baseline"`          | Tournament      | Smart BLX (α=0.3)  | Non-Uniform   | 2       | ✅ Recommended configuration  |
+| `"rws"`               | Roulette Wheel  | Smart BLX (α=0.3)  | Non-Uniform   | 2       | Tests selection pressure      |
+| `"uniform_crossover"` | Tournament      | Uniform            | Non-Uniform   | 2       | Tests crossover impact        |
+| `"uniform_mutation"`  | Tournament      | Smart BLX (α=0.3)  | Uniform       | 2       | Tests mutation impact         |
+| `"generational"`      | Tournament      | Smart BLX (α=0.3)  | Non-Uniform   | 0       | Pure generational replacement |
+
+---
+
+### `init_strategy` — Seeding the First Generation
+
+How generation zero is populated before evolution begins.
+
+| Value                   | Behavior                                                            | Best For             |
+|-------------------------|---------------------------------------------------------------------|----------------------|
+| `"Demand_Proportional"` | Seeds solutions proportional to each region's actual resource needs | ✅ Fair comparisons  |
+| `"Urgency_Biased"`      | Prioritizes regions with higher disaster severity scores            | Urgency experiments  |
+| `"Random"`              | Fully random initialization within bounds                           | Baseline comparison  |
+
+---
+
+### Hyperparameters
+
+| Parameter          | Default | Type    | Effect                                                                         |
+|--------------------|---------|---------|--------------------------------------------------------------------------------|
+| `max_generations`  | `100`   | `int`   | Max iterations. Early stopping triggers if no improvement for 20 generations.  |
+| `population_size`  | `100`   | `int`   | Number of allocation plans per generation.                                     |
+| `crossover_prob`   | `0.9`   | `float` | Probability that two selected parents will produce offspring.                  |
+
+---
+
+## Running 30 Experiments
+
+According to the project requirements, each configuration must be run **30 times independently**, with the seed used in every run stored and submitted alongside the results. This is non-negotiable — it's what makes the comparison statistically valid.
+
+### To compare configurations, only change config_type and keep the rest fixed.
+> *"The evolution should be carried out multiple times (optimally, 30 runs per setting). The list of seeds used to initialise the random number generator before each run should be stored & provided."*
+> — Course project guidelines
+
+The structure is: **30 runs × 5 `config_type` settings = 150 total runs**. Keep `init_strategy` and `population_size` fixed across all runs so the only variable between settings is the config itself.
+
+Here's the full template with seed tracking built in:
+
+```python
+import numpy as np
+import json
+from algorithms.ga import DisasterReliefGA
+from problem.scenarioM import get_scenario
+
+scenario = get_scenario()
+
+configs         = ["baseline", "rws", "uniform_crossover", "uniform_mutation", "generational"]
+init_strategy   = "Demand_Proportional"   # keep fixed across all runs
+population_size = 100                     # keep fixed across all runs
+NUM_RUNS        = 30
+
+# Generate 30 seeds once — same seeds reused across ALL configs for a fair comparison
+seeds = [int(s) for s in np.random.randint(0, 100000, size=NUM_RUNS)]
+print("Seeds:", seeds)   # save this output — it must be submitted
+
+all_results = {}
+
+for cfg in configs:
+    config_scores = []
+
+    for run_idx, seed in enumerate(seeds):
+        np.random.seed(seed)
+
+        optimizer = DisasterReliefGA(
+            scenario_data=scenario,
+            config_type=cfg,
+            init_strategy=init_strategy,
+            population_size=population_size
+        )
+        solution, score, history, _ = optimizer.run()
+        config_scores.append(score)
+
+        print(f"[{cfg}] run {run_idx+1:02d}/30 | seed={seed} | score={score:.4f}")
+
+    all_results[cfg] = {
+        "scores": config_scores,
+        "mean":   float(np.mean(config_scores)),
+        "std":    float(np.std(config_scores)),
+        "best":   float(np.min(config_scores)),   # minimization — lower is better
+        "seeds":  seeds
+    }
+
+# Save results + seeds to file for submission
+with open("experiment_results.json", "w") as f:
+    json.dump(all_results, f, indent=2)
+
+# Print summary
+print("\n--- Summary (lower = better) ---")
+for cfg, res in all_results.items():
+    print(f"{cfg:<25}  mean={res['mean']:.4f}  std={res['std']:.4f}  best={res['best']:.4f}")
+```
+
+**Why the same seeds across all configs?** Every configuration faces the exact same sequence of random starting points. Any score difference is then purely a product of the operator architecture — not luck.
+
+**What to submit:** `experiment_results.json` contains both the scores and the seeds list. Include it with your report.
+
+---
+
+## Reading the Output
+
+The default ablation study in `ga.py` prints a comparison table against the baseline:
+
+```
+Results (difference from baseline):
+
+Baseline (Tournament, BLX, Non-Uniform, Elitism=2)    1250.4500 | Δ = +0.0000
+Generational (Elitism=0)                              1320.1000 | Δ = -69.6500
+Roulette Wheel Selection                              1290.8000 | Δ = -40.3500
+Uniform Crossover                                     1310.2500 | Δ = -59.8000
+Uniform Mutation                                      1285.5000 | Δ = -35.0500
+```
+
+> **This is a minimization problem.** Lower scores = better allocation plans.
+> A *negative* Δ means that configuration performed worse than the baseline.
+
+---
+
+## How the Algorithm Works
+
+```
+Generation 0
+   │
+   ├─ Initialize population  (Demand_Proportional / Urgency_Biased / Random)
+   │
+   └─ For each generation:
+         │
+         ├─ Evaluate fitness   →  Fitness Sharing (σ=150) to preserve diversity
+         │
+         ├─ Select parents     →  Tournament (k=3)  or  Roulette Wheel
+         │
+         ├─ Crossover          →  Smart BLX-α (α=0.3)  or  Uniform
+         │
+         ├─ Mutate             →  Non-Uniform (σ shrinks over time)  or  Uniform
+         │
+         ├─ Repair population  →  Constraint repair runs after every generation
+         │
+         └─ Survivor selection →  Elitism=2 (baseline)  or  full replacement (generational)
+```
+
+*Early stopping:* halts automatically if fitness doesn't improve for 20 consecutive generations.
+
+---
+
+## Experimental Design Notes
+
+*These notes explain why the experiments are structured the way they are — the reasoning behind each methodological choice.*
+
+---
+
+### 1. Decoupling Initialization for Fair Baseline Comparison
+
+`init_strategy` is intentionally kept as a **separate, independent parameter** from `config_type`.
+
+This isolation of variables guarantees that when comparing the **Proposed Method** against the **Baseline**, both start from the exact same initial population (`"Demand_Proportional"`). By giving every configuration an identical starting point, we eliminate any "head start" advantage that a smarter initialization might otherwise introduce.
+
+> Any observed performance difference between configurations is strictly attributable to the architectural design of the operators themselves — *selection, crossover, mutation, and elitism* — not to how lucky generation zero happened to be.
+
+---
+
+### 2. Finalization and Solution Extraction Strategy
+
+The two primary configurations extract their best solution in **deliberately different ways**, and this asymmetry is intentional.
+
+| Configuration                             | Extraction Strategy                                        | Why                                                                                       |
+|-------------------------------------------|------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| **Proposed Method** (`"baseline"`)        | `best_solution()` — best solution *across the entire run* | Elitism guarantees the all-time best is always preserved in the population                |
+| **Generational Model** (`"generational"`) | Best solution from the **final generation only**          | Elitism=0 means strong solutions can be lost mid-run; final-gen extraction surfaces this weakness |
+
+Restricting the `"generational"` config to its final generation is a deliberate choice to produce empirically honest results. A standard generational model may discover a strong solution early but lose it by generation 100 due to disruptive crossover or mutation. Evaluating only the last generation accurately captures this failure mode — and provides clear empirical evidence for the value of **Elitism** in the proposed configuration.
+
+---
+
+### 3. Dynamic Mutation Rate Selection
+
+#### Theoretical Background
+
+Course lecture guidelines specify that the recommended range for the mutation rate *p_m* is:
+
+```
+1 / population_size  ≤  p_m  ≤  1 / chromosome_length
+```
+
+The *upper bound* is preferred when the goal is **search space coverage to find one highly fit individual**, rather than maintaining a broadly fit population.
+
+#### Our Decision
+
+Since the sole objective is to find **one optimal allocation plan**, we selected the upper bound and implemented it dynamically:
+
+```python
+mutation_rate = 1.0 / chromosome_length
+# i.e.: 1.0 / offspring.shape[1]
+```
+
+For the current 24-dimensional problem, this automatically computes to:
+
+```
+p_m = 1 / 24 ≈ 0.0417
+```
+
+This has two advantages over hardcoding a static decimal:
+
+- **Academic alignment** — the rate is derived directly from the course-recommended formula, not arbitrary tuning.
+- **Scalability** — if the scenario expands to more regions or resource types, the mutation rate recalculates itself automatically without any manual edits.
+
+---
+
+## Design Decisions
+
+*These aren't arbitrary choices. Every operator was selected or modified for a specific reason — here's the thinking behind each one.*
+
+---
+
+### Non-Uniform Mutation — The Core Innovation
+
+The lecture pseudocode gives a solid starting point: Gaussian mutation with a fixed `σ` and a static `mutation_rate = 0.1`. It works, but it has a fundamental tension built into it — the same mutation magnitude that's great for *exploring* early on becomes destructive later, when you're close to a good solution and don't want to be thrown across the search space.
+
+To resolve this, we applied a **Deterministic Dynamic Parameter Control** strategy *([Eiben, Hinterding, & Michalewicz, 1999](https://www.researchgate.net/publication/220381158_Parameter_control_in_evolutionary_algorithms))*: instead of a fixed `σ`, we use one that **decays linearly with time**:
+
+```python
+decay_factor  = 1.0 - (current_generation / max_generations)
+dynamic_sigma = initial_sigma * decay_factor   # starts at 50, approaches 0
+```
+
+The result is a mutation operator that *changes its personality* across the run — aggressive and wide-ranging early, surgical and precise toward the end. It bridges Gaussian probability with the non-uniform mutation principle from *(Michalewicz, 1992)*, achieving dynamic behavior without touching the chromosome representation or adding structural complexity.
+
+We also tightened the per-gene bounds using problem-specific constraints:
+
+```python
+Ui = min(capacity[region], budget[resource])   # can't exceed either ceiling
+Li = minimums[region][resource]                # must meet minimum requirement
+```
+
+This keeps every mutation within the feasible space from the start — reducing the repair burden downstream.
+
+**On Uniform Mutation as the comparison baseline:** `uniform_mutate` is kept as a direct foil. Its step size never changes — pure exploration from generation 1 to 100. Running both back-to-back makes the cost of ignoring *exploitation* clearly visible in the scores.
+
+---
+
+### Elitism — Why We Can't Afford to Lose Good Solutions
+
+In most optimization problems, losing a good solution for one generation is annoying. In a *constrained* disaster relief scenario it's worse — finding a valid, high-quality allocation plan is genuinely hard, and the repair step doesn't guarantee the repaired solution is as good as what you started with.
+
+**Elitism** (`keep_elitism=2`) is the insurance policy. It guarantees:
+
+1. **Feasibility is preserved** — once a valid solution is found, it survives.
+2. **Monotonic improvement** — the best score can only stay the same or get better, never backslide.
+
+The `"generational"` config (elitism=0) exists specifically to demonstrate what happens without this protection. A strong solution found at generation 40 can get destroyed by a disruptive crossover at generation 41 and never recover. That's the failure mode we're deliberately exposing.
+
+---
+
+### Tournament Selection — Backed by the Literature
+
+We chose **Tournament Selection** (k=3) over **Roulette Wheel Selection** as the primary method based on a comparative study by *[Zhong et al. (2005)](https://www.researchgate.net/publication/221216912_Comparison_of_Performance_between_Different_Selection_Strategies_on_Simple_Genetic_Algorithms)*, which found that Tournament consistently outperforms RWS in two key areas:
+
+- **Convergence speed** — Tournament is computationally leaner; it doesn't need to compute the full fitness distribution at every generation.
+- **Diversity preservation** — the tournament structure naturally resists the winner-take-all pressure that makes RWS collapse toward premature convergence in complex, constrained landscapes.
+
+The `"rws"` config lets you verify this empirically. Run both, compare the Δ.
+
+---
+
+### Smart BLX-α with α=0.3
+
+Standard **BLX-α** samples offspring from an interval *extended* beyond the parents by a factor of α. With a high α this is great for exploration — but in a problem where every gene must satisfy capacity and budget constraints, it generates values that immediately need repairing, which is expensive and can erode solution quality.
+
+Setting α=0.3 restricts exploration to 30% beyond the `[min, max]` parent range. Enough to search meaningfully. Not so much that the repair step becomes the most active part of the algorithm.
+
+The **BLX operator is intentionally left unconstrained** — it generates pure mathematical interpolations without checking physical limits. This is a deliberate *separation of concerns*: BLX handles exploration, `repair()` handles feasibility. Forcing BLX to check constraints mid-operation would contradict the mathematical intent of the γ equation and create operator coupling that hurts both.
+
+---
+
+### The Zero-Bound Problem — Why `Li` Matters
+
+An easy mistake in resource allocation GAs is assuming a generic lower bound of `Li = 0` for every gene. In reality, every region has a strictly positive *minimum survival threshold* — a floor below which any allocation is physically meaningless.
+
+When operators generate values starting from zero, they chronically produce infeasible allocations, forcing the repair function into exhaustive scaling loops on nearly every solution. By aligning the lower bound of both mutation and initialization directly with `scenario_data["minimums"]`:
+
+```python
+Li = minimums[region][resource]
+```
+
+the operators generate values that are already within the feasible range from the start — dramatically reducing the repair function's workload and eliminating an entire class of algorithmic friction.
+
+---
+
+### Hard Boundary Clipping Inside Mutation
+
+Unlike **BLX-α**, which is bounded by the distance between parents, Gaussian mutation is *mathematically unbounded* — it can generate extreme outliers in either direction (very large positives or heavy negatives), especially early in the run when `dynamic_sigma` is at its maximum.
+
+Allowing these extreme values to reach the repair function would corrupt the global budget calculation before the repair even has a chance to act. To prevent this, a strict **localized clipping** step is applied inside the mutation operator itself, immediately after each gene is mutated:
+
+```python
+gene ← clip(gene + mutation_size, Li, Ui)
+```
+
+This truncates mathematically absurd values at the gene level — before they can propagate into the broader solution and destabilize the repair phase.
+
+---
+
+### Why Repair Runs Every Generation
+
+Crossover and mutation will inevitably produce constraint violations — that's not a bug, it's expected. The question is *when* you fix them.
+
+Repairing only at the end means invalid solutions participate in selection and become parents. Their offspring inherit the violation patterns. By the time you repair the final generation, you've potentially evolved a lineage of structurally broken solutions.
+
+Running `repair_population` inside `on_generation_complete` — after every single generation — ensures the parent pool is always clean. Every solution that gets selected, crossed, and mutated is a valid one. The evolutionary pressure stays focused on *quality*, not on accidentally inheriting feasibility bugs.
+
+---
+
+## Full Algorithm Pseudocode
+
+*Each component of the system is defined as a standalone algorithm. Algorithm 7 is the master loop — it calls all others in sequence.*
+
+---
+
+<details>
+<summary><strong>Algorithm 1 — Population Initialization</strong></summary>
+<br>
+
+```
+INPUT  : N, scenario S, init_strategy ∈ {Demand_Proportional, Urgency_Biased, Random}
+OUTPUT : initial population P
+
+1:  if init_strategy = Demand_Proportional then
+2:      P ← InitialiseDemandProportional(N, S)
+3:  else if init_strategy = Urgency_Biased then
+4:      P ← InitialiseUrgencyBiased(N, S)
+5:  else
+6:      P ← InitialiseRandom(N, S)
+7:  end if
+8:  return P
+```
+
+</details>
+
+---
+
+<details>
+<summary><strong>Algorithm 2 — Fitness Evaluation with Fitness Sharing</strong></summary>
+<br>
+
+```
+INPUT  : solution x, population P, scenario S, σ_share = 150, α = 1
+OUTPUT : shared fitness f_shared(x)
+
+ 1:  raw_score ← ComputeFitness(x, S)
+ 2:  if P ≠ ∅ then
+ 3:      niche_count ← 0
+ 4:      for each x' ∈ P do
+ 5:          d ← ‖x − x'‖₂
+ 6:          if d ≤ σ_share then
+ 7:              sh(d) ← 1 − (d / σ_share)^α
+ 8:              niche_count ← niche_count + sh(d)
+ 9:          end if
+10:      end for
+11:      f_shared(x) ← raw_score / niche_count
+12:  else
+13:      f_shared(x) ← raw_score
+14:  end if
+15:  return f_shared(x)
+```
+
+</details>
+
+---
+
+<details>
+<summary><strong>Algorithm 3 — BLX-α Crossover</strong></summary>
+<br>
+
+```
+INPUT  : parents P, offspring size n, α = 0.3, crossover probability p_c
+OUTPUT : offspring set C
+
+ 1:  C ← ∅
+ 2:  idx ← 0
+ 3:  while |C| < n do
+ 4:      p1 ← P[idx mod |P|]
+ 5:      p2 ← P[(idx+1) mod |P|]
+ 6:      if rand() < p_c then
+ 7:          for i = 1 to dim(p1) do                 ▷ gene-wise blend
+ 8:              min_i ← min(p1[i], p2[i])
+ 9:              max_i ← max(p1[i], p2[i])
+10:              u  ∼ U(0, 1)
+11:              γ  ← (1 + 2α) · u − α
+12:              child[i] ← (1 − γ) · min_i + γ · max_i
+13:          end for
+14:          C ← C ∪ {child}
+15:      else
+16:          C ← C ∪ {p1}                            ▷ copy parent without crossover
+17:      end if
+18:      idx ← idx + 2
+19:  end while
+20:  return C
+```
+
+</details>
+
+---
+
+<details>
+<summary><strong>Algorithm 4 — Non-Uniform Gaussian Mutation</strong></summary>
+<br>
+
+```
+INPUT  : offspring C, current generation t, max generations T, σ₀ = 50, scenario S
+OUTPUT : mutated offspring C
+
+ 1:  p_m ← 1 / L                                     ▷ L = chromosome length
+ 2:  σ_t ← σ₀ · (1 − t / T)                         ▷ step size decays over generations
+ 3:  for i = 1 to |C| do
+ 4:      for j = 1 to L do
+ 5:          r_k   ← ⌊j / 3⌋                         ▷ region index
+ 6:          r_res ← j mod 3                          ▷ resource index
+ 7:          U_j ← min(capacity[r_k], budget[r_res])
+ 8:          L_j ← minimum[r_k][r_res]
+ 9:          if rand() < p_m then
+10:              δ ∼ N(0, σ_t)
+11:              C[i, j] ← clip(C[i, j] + δ, L_j, U_j)
+12:          end if
+13:      end for
+14:  end for
+15:  return C
+```
+
+</details>
+
+---
+
+<details>
+<summary><strong>Algorithm 5 — Uniform Mutation</strong></summary>
+<br>
+
+```
+INPUT  : offspring C, scenario S
+OUTPUT : mutated offspring C
+
+ 1:  p_m ← 1 / L
+ 2:  for i = 1 to |C| do
+ 3:      for j = 1 to L do
+ 4:          r_k   ← ⌊j / 3⌋
+ 5:          r_res ← j mod 3
+ 6:          U_j ← min(capacity[r_k], budget[r_res])
+ 7:          L_j ← minimum[r_k][r_res]
+ 8:          if rand() < p_m then
+ 9:              C[i, j] ∼ U(L_j, U_j)
+10:          end if
+11:      end for
+12:  end for
+13:  return C
+```
+
+</details>
+
+---
+
+<details>
+<summary><strong>Algorithm 6 — Constraint Repair</strong></summary>
+<br>
+
+```
+INPUT  : population P, scenario S
+OUTPUT : feasible population P
+
+1:  for i = 1 to |P| do
+2:      P[i] ← Repair(P[i], S)              ▷ fix constraint violations gene-wise
+3:      P[i] ← Flatten(P[i], order = 'F')   ▷ column-major flattening
+4:  end for
+5:  return P
+```
+
+</details>
+
+---
+
+<details>
+<summary><strong>Algorithm 7 — Master GA Loop</strong></summary>
+<br>
+
+```
+INPUT  : scenario S, config_type, init_strategy, N = 100, T = 100, p_c = 0.9
+OUTPUT : best solution x*, fitness f*, convergence history H, final population P
+
+ 1:  selection ← Tournament
+ 2:  K_tourn  ← 3                                       ▷ default baseline config
+ 3:  crossover ← BLX-α
+ 4:  mutation  ← Non-Uniform Gaussian
+ 5:  k_e ← 2
+ 6:  if config_type = rws then
+ 7:      selection ← RWS
+ 8:      K_tourn  ← None
+ 9:  end if
+10:  if config_type = uniform_crossover then
+11:      crossover ← Uniform
+12:  end if
+13:  if config_type = uniform_mutation then
+14:      mutation ← Uniform
+15:  end if
+16:  if config_type = generational then
+17:      k_e ← 0
+18:  end if
+19:
+20:  P ← Algorithm 1(N, S, init_strategy)
+21:  for each x ∈ P do
+22:      f(x) ← Algorithm 2(x, P, S)
+23:  end for
+24:  P ← Algorithm 6(P, S)
+25:
+26:  t ← 0
+27:  stagnation ← 0
+28:  H ← []
+29:  while t < T and stagnation < 20 do
+30:      E       ← top-k_e individuals from P                  ▷ elitism
+31:      Parents ← Selection(P, N/2, selection, K_tourn)
+32:      C       ← Crossover(Parents, N − k_e, p_c)            ▷ Algorithm 3 or Uniform
+33:      C       ← Mutation(C, t, T)                           ▷ Algorithm 4 or Algorithm 5
+34:      C       ← Algorithm 6(C, S)                           ▷ repair after mutation
+35:      for each x ∈ C do
+36:          f(x) ← Algorithm 2(x, C ∪ P, S)
+37:      end for
+38:      P ← E ∪ C
+39:
+40:      if max f(P) = max f(P_prev) then
+41:          stagnation ← stagnation + 1
+42:      else
+43:          stagnation ← 0
+44:      end if
+45:      H ← H ∪ {max f(P)}
+46:      t ← t + 1
+47:  end while
+48:
+49:  if config_type = generational then
+50:      x* ← P[argmax f(P)]                                   ▷ last generation only
+51:  else
+52:      x* ← BestSolution(P)                                  ▷ overall best across all generations
+53:  end if
+54:
+55:  x* ← Repair(x*, S)
+56:  f* ← ComputeFitness(x*, S)
+57:  return x*, f*, H, P
+```
+
+</details>
+
+---
+
+## Dependencies
+
+| Package  | Purpose                      |
+|----------|------------------------------|
+| `numpy`  | Array operations, math       |
+| `pygad`  | Genetic algorithm framework  |
+
+---
+
 ### Member 4 (Island Model)
 #### Hybrid GA+PSO Optimization
 
