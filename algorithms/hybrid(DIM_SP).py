@@ -126,7 +126,7 @@ class Island:
         
         self._ga_helper = DisasterReliefGA(
             scenario_data=scenario,
-            config_type="config1",
+            config_type="baseline",
             init_strategy="Demand_Proportional",
             max_generations=TOTAL_GENERATIONS,
             population_size=self.n,
@@ -378,6 +378,11 @@ def run_experiments(): # Runs three experiments with different cluster strategie
     ]
     
     results = {}
+
+    ga = DisasterReliefGA(scenario_data=scenario, config_type="baseline",
+                          init_strategy="Demand_Proportional",
+                          max_generations=100, population_size=50)
+    _, score_g, _, _ = ga.run()
     
     for exp_name, strategy in experiments:
         print(f"\n{'='*60}")
