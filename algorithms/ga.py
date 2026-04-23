@@ -2,7 +2,7 @@ import sys
 import os
 import numpy as np
 import pygad
-
+import random
 sys.path.insert(0,os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.insert(0,os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'problem')))
 
@@ -13,7 +13,7 @@ from problem.constraint import repair as repair_solution
 
 
 class DisasterReliefGA:
-    def __init__(self, scenario_data, config_type, init_strategy, max_generations=100, population_size=50 , crossover_prob=0.9):
+    def __init__(self, scenario_data, config_type, init_strategy, max_generations=100, population_size=50 , crossover_prob=0.9, seed=None):
 
         self.crossover_prob = crossover_prob
         self.scenario_data = scenario_data
@@ -22,15 +22,17 @@ class DisasterReliefGA:
         self.max_generations = max_generations
         self.population_size = population_size
         self.ga_instance = None
+        self.seed = seed
+        self.ga_instance = None
 
-    def initialize_population(self):
+    def initialize_population(self, seed):
 
         if self.init_strategy == "Demand_Proportional":
-            return initialise_demand_proportional(self.population_size, self.scenario_data)
+            return initialise_demand_proportional(self.population_size, self.scenario_data, seed)
         elif self.init_strategy == "Urgency_Biased":
-            return initialise_urgency_biased(self.population_size, self.scenario_data)
+            return initialise_urgency_biased(self.population_size, self.scenario_data, seed)
         else:
-            return initialise_random(self.population_size, self.scenario_data)
+            return initialise_random(self.population_size, self.scenario_data, seed)
 
     def evaluate(self, ga_inst, solution, solution_idx):
         rawScore, _ = compute_fitness(solution, self.scenario_data)
@@ -134,7 +136,10 @@ class DisasterReliefGA:
 
 
     def run(self):
-        population = self.initialize_population()
+        if self.seed is not None:
+            np.random.seed(self.seed)
+            random.seed(self.seed)
+        population = self.initialize_population(self.seed)
 
         #Baseline Configuration
         parent_selection = "tournament"
@@ -167,7 +172,8 @@ class DisasterReliefGA:
             mutation_type=mutation_type,
             keep_elitism=elitism,
             stop_criteria=["saturate_20"],
-            on_generation=self.on_generation_complete
+            on_generation=self.on_generation_complete,
+            random_seed=self.seed
         )
 
         self.ga_instance.run()
@@ -209,7 +215,8 @@ if __name__ == "__main__":
         ga_optimizer = DisasterReliefGA(
             scenario_data=scenario,
             config_type=config_key,
-            init_strategy="Demand_Proportional"
+            init_strategy="Demand_Proportional",
+            seed=42
         )
 
         sol, score, hist, pop = ga_optimizer.run()
