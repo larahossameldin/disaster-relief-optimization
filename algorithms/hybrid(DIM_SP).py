@@ -125,7 +125,7 @@ class Island:
         
         self._ga_helper = DisasterReliefGA(
             scenario_data=scenario,
-            config_type="config1",
+            config_type="baseline",
             init_strategy="Demand_Proportional",
             max_generations=TOTAL_GENERATIONS,
             population_size=self.n,
@@ -326,7 +326,7 @@ if __name__ == "__main__": # Compares hybrid model performance against standalon
                         island_size=50, max_islands=5, verbose=False)
     sol_h, score_h, hist_h = dimsp.run()
     
-    ga = DisasterReliefGA(scenario_data=scenario, config_type="config1",
+    ga = DisasterReliefGA(scenario_data=scenario, config_type="baseline",
                           init_strategy="Demand_Proportional",
                           max_generations=100, population_size=50)
     _, score_g, _, _ = ga.run()

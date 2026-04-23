@@ -14,7 +14,7 @@ from algorithms.pso import PSO
 TOTAL_GENERATIONS = 100
 EXCHANGE_INTERVAL = 10
 ISLAND_SIZE       = 50
-GA_CONFIG         = "config1"
+GA_CONFIG         = "baseline"
 INIT_STRATEGY     = "Demand_Proportional"
 
 class StaticIslandHybrid:

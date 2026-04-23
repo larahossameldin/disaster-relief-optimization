@@ -13,8 +13,9 @@ from problem.constraint import repair as repair_solution
 
 
 class DisasterReliefGA:
-    def __init__(self, scenario_data, config_type, init_strategy, max_generations=100, population_size=50):
+    def __init__(self, scenario_data, config_type, init_strategy, max_generations=100, population_size=50 , crossover_prob=0.9):
 
+        self.crossover_prob = crossover_prob
         self.scenario_data = scenario_data
         self.config_type = config_type
         self.init_strategy = init_strategy
@@ -52,20 +53,22 @@ class DisasterReliefGA:
         # alpha=0.3 restricts exploration to 30% beyond the [min_val, max_val] interval
         # reducing the chance of generating infeasible values that require heavy repair
         alpha = 0.3
+        prob = self.crossover_prob
         while len(offspring) < offspring_size[0]:
             parent1 = parents[idx % parents.shape[0], :]
             parent2 = parents[(idx + 1) % parents.shape[0], :]
-
-            child = np.empty_like(parent1)
-            for i in range(len(parent1)):
-                min_val = min(parent1[i], parent2[i])
-                max_val = max(parent1[i], parent2[i])
-                u = np.random.rand()
-                gamma = (1 + 2 * alpha) * u - alpha
-                zi = (1 - gamma) * min_val + gamma * max_val
-                child[i] = zi
-
-            offspring.append(child)
+            if np.random.rand() < prob:
+                child = np.empty_like(parent1)
+                for i in range(len(parent1)):
+                    min_val = min(parent1[i], parent2[i])
+                    max_val = max(parent1[i], parent2[i])
+                    u = np.random.rand()
+                    gamma = (1 + 2 * alpha) * u - alpha
+                    zi = (1 - gamma) * min_val + gamma * max_val
+                    child[i] = zi
+                offspring.append(child)
+            else:
+                 offspring.append(parent1.copy())
             idx += 2
 
         return np.array(offspring)
@@ -132,18 +135,26 @@ class DisasterReliefGA:
 
     def run(self):
         population = self.initialize_population()
-        if self.config_type == "config1":
-            parent_selection = "tournament"
-            K_tourn = 3
-            crossover_type = self.blx
-            mutation_type = self.nonuniform_mutate
-            elitism = 2
-        else:
+
+        #Baseline Configuration
+        parent_selection = "tournament"
+        K_tourn = 3
+        crossover_type = self.blx
+        mutation_type = self.nonuniform_mutate
+        elitism = 2
+
+        if self.config_type == "baseline":
+            pass
+        elif self.config_type == "rws":
             parent_selection = "rws"
             K_tourn = None
+        elif self.config_type == "uniform_crossover":
             crossover_type = "uniform"
+        elif self.config_type == "uniform_mutation":
             mutation_type = self.uniform_mutate
+        elif self.config_type == "generational":
             elitism = 0
+
         self.ga_instance = pygad.GA(
             num_generations=self.max_generations,
             num_parents_mating=self.population_size // 2,
@@ -152,6 +163,7 @@ class DisasterReliefGA:
             parent_selection_type=parent_selection,
             K_tournament=K_tourn,
             crossover_type=crossover_type,
+            crossover_probability=self.crossover_prob,
             mutation_type=mutation_type,
             keep_elitism=elitism,
             stop_criteria=["saturate_20"],
@@ -165,14 +177,13 @@ class DisasterReliefGA:
 
         FinalPopulation = self.ga_instance.population
 
-        if self.config_type == "config1":
-            best_position, _, _ = self.ga_instance.best_solution()
-            best_solution = best_position
-
-        elif self.config_type == "config2":
+        if self.config_type == "generational":
             final_fitnesses = self.ga_instance.last_generation_fitness
             best_idx = np.argmax(final_fitnesses)
             best_solution = FinalPopulation[best_idx]
+        else :
+            best_position, _, _ = self.ga_instance.best_solution()
+            best_solution = best_position
 
         final_repaired_solution = repair_solution(best_solution, self.scenario_data).flatten(order='F')
         final_score, _ = compute_fitness(final_repaired_solution, self.scenario_data)
@@ -184,12 +195,32 @@ class DisasterReliefGA:
 if __name__ == "__main__":
     scenario = get_scenario()
 
-    print("Config 1 (Proposed Method)")
-    ga_optimizer_1 = DisasterReliefGA(scenario_data=scenario, config_type="config1",init_strategy="Demand_Proportional")
-    sol1, score1, hist1, pop1 = ga_optimizer_1.run()
-    print(f"Config 1 Score: {score1:.4f}\n")
+    configs_dict = {
+        "baseline": "Baseline (Tournament, BLX, Non-Uniform, Elitism=2)",
+        "generational": "Generational (Elitism=0)",
+        "rws": "Roulette Wheel Selection",
+        "uniform_crossover": "Uniform Crossover",
+        "uniform_mutation": "Uniform Mutation"
+    }
 
-    print("Config 2 (Baseline)")
-    ga_optimizer_2 = DisasterReliefGA(scenario_data=scenario, config_type="config2",init_strategy="Demand_Proportional")
-    sol2, score2, hist2, pop2 = ga_optimizer_2.run()
-    print(f"Config 2 Score: {score2:.4f}")
+    final_results = {}
+
+    for config_key, config_name in configs_dict.items():
+        ga_optimizer = DisasterReliefGA(
+            scenario_data=scenario,
+            config_type=config_key,
+            init_strategy="Demand_Proportional"
+        )
+
+        sol, score, hist, pop = ga_optimizer.run()
+        final_results[config_name] = score
+
+    baseline_name = configs_dict["baseline"]
+    baseline_score = final_results[baseline_name]
+
+    print("Results (difference from baseline):\n")
+
+    for name, score in final_results.items():
+        diff = baseline_score - score
+
+        print(f"{name.ljust(50)} {score:.4f} | Δ = {diff:+.4f}")
