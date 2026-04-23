@@ -23,6 +23,7 @@ SIGMA             = 1.0
 MIN_CLUSTER_SIZE  = 10
 STAGNATION_THRESHOLD = 3
 DIVERSITY_PERTURBATION = 0.2
+EXTINCTION_THRESHOLD = 5  # New threshold for extinction event
 
 def build_similarity_matrix(population, sigma=SIGMA): # Builds similarity graph using Gaussian kernel for spectral clustering
     N, dim = population.shape
@@ -161,18 +162,44 @@ class Island:
         self.best_history.append(self.best_score)
         return fits
     
-    def _inject_diversity(self): # Injects diversity when stagnation is detected to avoid local optima
-        if self.stagnation_counter >= STAGNATION_THRESHOLD:
+    def _inject_diversity(self): # Hybridized stagnation handling with extinction for severe stagnation
+        if self.stagnation_counter < EXTINCTION_THRESHOLD:
+            # Mild stagnation: perturb around best solution
+            if self.stagnation_counter >= STAGNATION_THRESHOLD:
+                fits = self._eval_all()
+                worst_indices = np.argsort(fits)[-int(0.3 * self.n):]
+                
+                for idx in worst_indices:
+                    noise = np.random.normal(0, DIVERSITY_PERTURBATION, size=self.best_solution.shape)
+                    new_individual = repair(self.best_solution + noise, self.scenario).flatten(order='F')
+                    self.population[idx] = new_individual
+                
+                if self.operator == "PSO":
+                    self._vel[worst_indices] = np.random.uniform(-0.5, 0.5, size=(len(worst_indices), self.dim))
+                
+                self.stagnation_counter = 0
+        else:
+            # Severe stagnation: extinction event - replace worst individuals with random ones
             fits = self._eval_all()
-            worst_indices = np.argsort(fits)[-int(0.3 * self.n):]
+            worst_indices = np.argsort(fits)[-int(0.5 * self.n):]  # Replace 50% worst individuals
             
-            for idx in worst_indices:
-                noise = np.random.normal(0, DIVERSITY_PERTURBATION, size=self.best_solution.shape)
-                new_individual = repair(self.best_solution + noise, self.scenario).flatten(order='F')
-                self.population[idx] = new_individual
+            # Generate random individuals for extinction
+            random_individuals = []
+            for _ in range(len(worst_indices)):
+                random_ind = initialise_random(1, self.scenario)[0]
+                random_individuals.append(random_ind)
             
+            self.population[worst_indices] = np.array(random_individuals)
+            
+            # Reset velocities for PSO islands
             if self.operator == "PSO":
                 self._vel[worst_indices] = np.random.uniform(-0.5, 0.5, size=(len(worst_indices), self.dim))
+            
+            # Reset pbest for replaced individuals
+            new_fits = self._eval_all()
+            for i, idx in enumerate(worst_indices):
+                self._pbest_x[idx] = self.population[idx].copy()
+                self._pbest_f[idx] = new_fits[idx]
             
             self.stagnation_counter = 0
     
@@ -243,7 +270,7 @@ class DIMSPHybrid:
         epoch_interval=EPOCH_INTERVAL,
         island_size=ISLAND_SIZE,
         max_islands=MAX_ISLANDS,
-        init_strategy="Demand_Proportional",
+        init_strategy="random",  # Changed default to random
         verbose=False,
     ):
         self.scenario = scenario
@@ -253,11 +280,12 @@ class DIMSPHybrid:
         self.max_islands = max_islands
         self.verbose = verbose
         
+        # Modified: random initialization as default
         if init_strategy == "Demand_Proportional":
             pop = initialise_demand_proportional(island_size, scenario)
         elif init_strategy == "Urgency_Biased":
             pop = initialise_urgency_biased(island_size, scenario)
-        else:
+        else:  # Default is now random
             pop = initialise_random(island_size, scenario)
         
         self.islands = [Island(pop, scenario, operator="PSO", island_id=0)]
@@ -267,7 +295,7 @@ class DIMSPHybrid:
         self.best_solution = None
         self.best_score = np.inf
     
-    def _run_epoch(self, current_gen): # Re-clusters population and dynamically assigns GA or PSO to new islands
+    def _run_epoch(self, current_gen, cluster_strategy="large_clusters_psi"): # Re-clusters population and dynamically assigns GA or PSO to new islands
         Pa = np.vstack([isl.population for isl in self.islands])
         fits_all = np.array([compute_fitness(ind, self.scenario)[0] for ind in Pa])
         
@@ -279,12 +307,33 @@ class DIMSPHybrid:
             scenario=self.scenario,
         )
         
-        median_size = np.median([len(p) for p in new_pops]) # Computes median cluster size to classify islands into large (PSO) and small (GA) for adaptive hybrid optimization
-        new_islands = []
-        for idx, pop in enumerate(new_pops):
-            op = "PSO" if len(pop) >= median_size else "GA"
-            isl = Island(pop, self.scenario, operator=op, island_id=idx)
-            new_islands.append(isl)
+        # Apply different operator assignment strategies
+        sizes = [len(p) for p in new_pops]
+        
+        if cluster_strategy == "large_clusters_psi":
+            # Baseline: Large clusters use PSO, small clusters use GA
+            median_size = np.median(sizes)
+            new_islands = []
+            for idx, pop in enumerate(new_pops):
+                op = "PSO" if len(pop) >= median_size else "GA"
+                isl = Island(pop, self.scenario, operator=op, island_id=idx)
+                new_islands.append(isl)
+        
+        elif cluster_strategy == "small_clusters_psi":
+            # Opposite: Small clusters use PSO, large clusters use GA
+            median_size = np.median(sizes)
+            new_islands = []
+            for idx, pop in enumerate(new_pops):
+                op = "GA" if len(pop) >= median_size else "PSO"
+                isl = Island(pop, self.scenario, operator=op, island_id=idx)
+                new_islands.append(isl)
+        
+        else:  # "random" strategy
+            new_islands = []
+            for idx, pop in enumerate(new_pops):
+                op = np.random.choice(["PSO", "GA"])
+                isl = Island(pop, self.scenario, operator=op, island_id=idx)
+                new_islands.append(isl)
         
         self.islands = new_islands
     
@@ -294,7 +343,7 @@ class DIMSPHybrid:
                 self.best_score = isl.best_score
                 self.best_solution = isl.best_solution.copy()
     
-    def run(self): # Main execution loop controlling evolution, clustering, and optimization cycles
+    def run(self, cluster_strategy="large_clusters_psi"): # Main execution loop with configurable cluster strategy
         n_epochs = self.total_generations // self.epoch_interval
         steps_per_epoch = self.epoch_interval
         
@@ -302,7 +351,7 @@ class DIMSPHybrid:
             current_gen = epoch * steps_per_epoch
             
             if epoch > 0:
-                self._run_epoch(current_gen)
+                self._run_epoch(current_gen, cluster_strategy)
             
             for isl in self.islands:
                 isl.evolve(n_steps=steps_per_epoch)
@@ -319,38 +368,83 @@ class DIMSPHybrid:
             "island_count": self.island_count_hist,
         }
 
-if __name__ == "__main__": # Compares hybrid model performance against standalone GA and PSO
+def run_experiments(): # Runs three experiments with different cluster strategies
     scenario = get_scenario()
     
-    dimsp = DIMSPHybrid(scenario, total_generations=100, epoch_interval=20,
-                        island_size=50, max_islands=5, verbose=False)
-    sol_h, score_h, hist_h = dimsp.run()
+    experiments = [
+        ("Baseline (Large Clusters use PSO)", "large_clusters_psi"),
+        ("Opposite (Small Clusters use PSO)", "small_clusters_psi"),
+        ("Random Assignment", "random")
+    ]
     
-    ga = DisasterReliefGA(scenario_data=scenario, config_type="config1",
-                          init_strategy="Demand_Proportional",
-                          max_generations=100, population_size=50)
-    _, score_g, _, _ = ga.run()
+    results = {}
     
-    pso = PSO(scenario=scenario, num_particles=50, max_iterations=100,
-              ring=True, neighbors=4,
-              initialization_strategy="demand_proportional")
-    score_p, _, _ = pso.optimize()
+    for exp_name, strategy in experiments:
+        print(f"\n{'='*60}")
+        print(f"Running Experiment: {exp_name}")
+        print(f"{'='*60}")
+        
+        dimsp = DIMSPHybrid(scenario, total_generations=100, epoch_interval=20,
+                            island_size=50, max_islands=5, verbose=False)
+        sol_h, score_h, hist_h = dimsp.run(cluster_strategy=strategy)
+        
+        # Compare with standalone algorithms
+        ga = DisasterReliefGA(scenario_data=scenario, config_type="config1",
+                              init_strategy="random",  # Using random initialization
+                              max_generations=100, population_size=50)
+        _, score_g, _, _ = ga.run()
+        
+        pso = PSO(scenario=scenario, num_particles=50, max_iterations=100,
+                  ring=True, neighbors=4,
+                  initialization_strategy="random")  # Using random initialization
+        score_p, _, _ = pso.optimize()
+        
+        best_baseline = min(score_g, score_p)
+        improvement = (best_baseline - score_h) / best_baseline * 100
+        
+        results[exp_name] = {
+            "hybrid_score": score_h,
+            "ga_score": score_g,
+            "pso_score": score_p,
+            "best_baseline": best_baseline,
+            "improvement": improvement
+        }
+        
+        print(f"\nResults for {exp_name}:")
+        print(f"GA Standalone Score:      {score_g:.4f}")
+        print(f"PSO Standalone Score:     {score_p:.4f}")
+        print(f"Hybrid Score:             {score_h:.4f}")
+        print(f"Best Baseline Score:      {best_baseline:.4f}")
+        print(f"Improvement from Hybrid:  {improvement:.2f}%")
+        
+        if improvement > 0:
+            print(f"✓ Hybrid improved by {improvement:.2f}% over the best baseline")
+        else:
+            print(f"✗ Hybrid was {abs(improvement):.2f}% worse than the best baseline")
     
-    best_baseline = min(score_g, score_p)
-    improvement = (best_baseline - score_h) / best_baseline * 100
+    # Summary of all experiments
+    print(f"\n{'='*60}")
+    print("SUMMARY OF ALL EXPERIMENTS")
+    print(f"{'='*60}")
+    for exp_name, data in results.items():
+        print(f"\n{exp_name}:")
+        print(f"  Hybrid Score: {data['hybrid_score']:.4f}")
+        print(f"  Improvement: {data['improvement']:.2f}%")
+        if data['improvement'] > 0:
+            print(f"  Status: ✓ BEATEN baseline")
+        else:
+            print(f"  Status: ✗ WORSE than baseline")
     
-    print("FINAL RESULTS:")
-    print(f"GA Standalone Score:      {score_g:.4f}")
-    print(f"PSO Standalone Score:     {score_p:.4f}")
-    print(f"Hybrid (GA+PSO) Score:    {score_h:.4f}")
-    print(f"Best Baseline Score:      {best_baseline:.4f}")
-    print(f"Improvement from Hybrid:  {improvement:.2f}%")
+    # Find best experiment
+    best_exp = max(results.items(), key=lambda x: x[1]['improvement'])
+    print(f"\n{'='*60}")
+    print(f"BEST PERFORMING STRATEGY: {best_exp[0]}")
+    print(f"Improvement: {best_exp[1]['improvement']:.2f}%")
+    print(f"Hybrid Score: {best_exp[1]['hybrid_score']:.4f}")
+    print(f"{'='*60}")
     
-    if improvement > 0:
-        print(f"\nSUCCESS: Hybrid improved by {improvement:.2f}% over the best baseline")
-        if score_h < score_g and score_h < score_p:
-            print("Hybrid outperformed BOTH GA and PSO individually")
-        elif score_h < best_baseline:
-            print("Hybrid outperformed the best individual algorithm")
-    else:
-        print(f"\nHybrid was {abs(improvement):.2f}% worse than the best baseline")
+    return results
+
+if __name__ == "__main__":
+    # Run the three experiments
+    results = run_experiments()
