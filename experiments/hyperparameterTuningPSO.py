@@ -48,6 +48,7 @@ def run_pso(params, n_runs, trial_number):
             ring=params["ring"],
             neighbors=params["neighbors"],
             initialization_strategy=params["initialization_strategy"],
+            f1_mode=params["f1_mode"],
             seed=seed
         )
 
@@ -74,7 +75,8 @@ def objective(trial):
         "initialization_strategy": trial.suggest_categorical(
             "initialization_strategy",
             ["random", "demand_proportional", "urgency_biased"]
-        )
+        ),
+        "f1_mode": trial.suggest_categorical("f1_mode", ["asymmetric", "absolute", "squared", "relative"])
     }
 #Conditional parameters
     if bare:
@@ -97,10 +99,10 @@ def log_callback(study, trial):
     current = trial.value
 
     tag = " NEW BEST" if current == best else ""
-
     print(
         f"[Trial {trial.number+1:>3}] "
         f"Fitness = {current:.6f}   |   Best = {best:.6f}   {tag}"
+        # f"   |   Params: {trial.params}"
     )
 
 

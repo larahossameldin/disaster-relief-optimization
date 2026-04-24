@@ -27,7 +27,7 @@ from constraint import repair, compute_penalty
 W1      = 0.6          # weight for f1 (suffering)  — highest, lives at stake
 W2      = 0.2          # weight for f2 (waste)
 W3      = 0.2          # weight for f3 (delivery difficulty)
-F1_MODE = "asymmetric" # default f1 formula
+F1_MODE = "relative" # default f1 formula
 BETA    = 0.5          # over-supply multiplier in asymmetric mode (< 1 = lenient)
 
 
@@ -175,8 +175,6 @@ def compute_norm_constants(scenario):
 
 def compute_fitness(solution, scenario, f1_mode=F1_MODE, beta=BETA,
                     w1=W1, w2=W2, w3=W3, norm=None):
-    if norm is None:
-        norm = compute_norm_constants(scenario)
     """
     Compute the combined fitness  F = w1*f1 + w2*f2 + w3*f3 + penalty.
 

@@ -2,10 +2,11 @@ import sys
 import os
 import numpy as np
 import pygad
+import io
 import random
 sys.path.insert(0,os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.insert(0,os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'problem')))
-
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from problem.scenarioM import get_scenario
 from problem.FitnessFinal import compute_fitness, initialise_demand_proportional, initialise_urgency_biased,initialise_random
 from problem.constraint import repair as repair_solution
