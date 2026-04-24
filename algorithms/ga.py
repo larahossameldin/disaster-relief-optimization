@@ -6,7 +6,6 @@ import io
 import random
 sys.path.insert(0,os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.insert(0,os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'problem')))
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from problem.scenarioM import get_scenario
 from problem.FitnessFinal import compute_fitness, initialise_demand_proportional, initialise_urgency_biased,initialise_random
 from problem.constraint import repair as repair_solution
@@ -14,7 +13,7 @@ from problem.constraint import repair as repair_solution
 
 
 class DisasterReliefGA:
-    def __init__(self, scenario_data, config_type, init_strategy, max_generations=100, population_size=50 , crossover_prob=0.9, seed=None):
+    def __init__(self, scenario_data, config_type, init_strategy, max_generations=100, population_size=50 , crossover_prob=0.9, seed=None ,  f1_mode="asymmetric" , sigma_share = 14.218593557890934 , alpha_sharing =  1.102497 , K_tourn = 8):
 
         self.crossover_prob = crossover_prob
         self.scenario_data = scenario_data
@@ -25,6 +24,10 @@ class DisasterReliefGA:
         self.ga_instance = None
         self.seed = seed
         self.ga_instance = None
+        self.f1_mode = f1_mode
+        self.sigma_share = sigma_share
+        self.alpha_sharing = alpha_sharing
+        self.K_tourn = K_tourn
 
     def initialize_population(self, seed):
 
@@ -36,17 +39,18 @@ class DisasterReliefGA:
             return initialise_random(self.population_size, self.scenario_data, seed)
 
     def evaluate(self, ga_inst, solution, solution_idx):
-        rawScore, _ = compute_fitness(solution, self.scenario_data)
+        rawScore, _ = compute_fitness(solution, self.scenario_data , self.f1_mode)
         if ga_inst.population is not None and len(ga_inst.population) > 0:
-            sigma_share = 150.0  # Niche size
-            alpha = 1.0  # Sharing level
+            sigma_share = self.sigma_share
+            alpha_sharing = self.alpha_sharing
             niche_count = 0.0
             for other_solution in ga_inst.population:
                 distance = np.linalg.norm(solution - other_solution)
                 if distance <= sigma_share:
-                    sh_d = 1.0 - ((distance / sigma_share) ** alpha)
+                    sh_d = 1.0 - ((distance / sigma_share) ** alpha_sharing)
                     niche_count += sh_d
-            shared_score = rawScore / niche_count
+            niche_count = max(1.0, niche_count)
+            shared_score = rawScore * niche_count
             return -shared_score
         return -rawScore
 
@@ -71,7 +75,7 @@ class DisasterReliefGA:
                     child[i] = zi
                 offspring.append(child)
             else:
-                 offspring.append(parent1.copy())
+                offspring.append(parent1.copy())
             idx += 2
 
         return np.array(offspring)
@@ -106,8 +110,7 @@ class DisasterReliefGA:
         return np.array(offspring)
 
     def uniform_mutate(self, offspring, ga_instance):
-        chromosome_length = offspring.shape[1]
-        mutation_rate = 1 / chromosome_length
+        mutation_rate = 0.5
 
         for i in range(offspring.shape[0]):
             for j in range(offspring.shape[1]):
@@ -144,7 +147,7 @@ class DisasterReliefGA:
 
         #Baseline Configuration
         parent_selection = "tournament"
-        K_tourn = 3
+        K_tourn = self.K_tourn
         crossover_type = self.blx
         mutation_type = self.nonuniform_mutate
         elitism = 2
@@ -193,7 +196,7 @@ class DisasterReliefGA:
             best_solution = best_position
 
         final_repaired_solution = repair_solution(best_solution, self.scenario_data).flatten(order='F')
-        final_score, _ = compute_fitness(final_repaired_solution, self.scenario_data)
+        final_score, _ = compute_fitness(final_repaired_solution, self.scenario_data,self.f1_mode)
         convergence_history = [-fit for fit in self.ga_instance.best_solutions_fitness]
 
         return final_repaired_solution, final_score, convergence_history, FinalPopulation
@@ -201,6 +204,7 @@ class DisasterReliefGA:
 
 if __name__ == "__main__":
     scenario = get_scenario()
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
     configs_dict = {
         "baseline": "Baseline (Tournament, BLX, Non-Uniform, Elitism=2)",
