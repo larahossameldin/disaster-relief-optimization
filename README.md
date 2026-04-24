@@ -349,6 +349,7 @@ The first 10 trials are random warm-up to seed the model, after which TPE guides
 | `ring` | categorical | `True`, `False` |
 | `neighbors` | int | 2 – 8 *(only when `ring=True`)* |
 | `initialization_strategy` | categorical | `random`, `demand_proportional`, `urgency_biased` |
+| `f1_mode` | categorical | `asymmetric` | `absolute` | `squared` | `relative` |
 
 `bare_prob` and `neighbors` are **conditionally sampled** — they are only explored when the parameter they depend on is active, keeping the search space tight and avoiding wasted trials on irrelevant combinations.
 
