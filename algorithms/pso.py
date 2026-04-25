@@ -42,7 +42,7 @@ class PSO:
                 bare=False, bare_prob=0.5,
                 ring=False, neighbors=4,
                 seed=None, 
-                w1=W1, w2=W2, w3=W3,beta=BETA, f1_mode="relative",
+                w1=W1, w2=W2, w3=W3,beta=BETA, f1_mode="asymmetric",
                 initialization_strategy='random'):
         
         self.scenario=scenario
