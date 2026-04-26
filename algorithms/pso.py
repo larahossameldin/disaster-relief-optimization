@@ -36,8 +36,8 @@ class RandomInertia:
     
 
 class PSO:
-    def __init__(self,scenario,num_particles=30,max_iterations=200,
-                c1=1.49,c2=1.49,
+    def __init__(self,scenario,num_particles=42,max_iterations=200,
+                c1=1.6119147368019613,c2=0.9561633508108678,
                 inertia=None,
                 bare=False, bare_prob=0.5,
                 ring=False, neighbors=4,
@@ -67,7 +67,7 @@ class PSO:
         
         #Inertia strategy, default is linear inertia
         if inertia is None:
-            self.inertia=LinearInertia()
+            self.inertia=RandomInertia(self.rng)
         else:
             self.inertia=inertia
         
