@@ -163,5 +163,4 @@ if __name__ == "__main__":
     save_path = os.path.join(PLOTS_DIR, "tpe_pso_convergence.png")
     plt.savefig(save_path, dpi=150, bbox_inches="tight") #dpi dots per inch, bbox_inches="tight" trims whitespace around the figure
     print(f"\nPlot saved to: {save_path}")
-
     plt.show()
