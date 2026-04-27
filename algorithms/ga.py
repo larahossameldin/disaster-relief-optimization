@@ -110,7 +110,8 @@ class DisasterReliefGA:
         return np.array(offspring)
 
     def uniform_mutate(self, offspring, ga_instance):
-        mutation_rate = 0.5
+        chromosome_length = offspring.shape[1]
+        mutation_rate = 1 / chromosome_length
 
         for i in range(offspring.shape[0]):
             for j in range(offspring.shape[1]):
