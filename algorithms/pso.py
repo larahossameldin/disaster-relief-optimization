@@ -43,7 +43,9 @@ class PSO:
                 ring=True, neighbors=7,
                 seed=None, 
                 w1=W1, w2=W2, w3=W3,beta=BETA, f1_mode="asymmetric",
-                initialization_strategy='demand_proportional'):
+                initialization_strategy='demand_proportional',
+                stagnation_threshold=30, stagnation_tolerance=1e-6,
+                near_zero_tolerance=1e-3):
         
         self.scenario=scenario
         self.num_particles=num_particles
@@ -61,6 +63,9 @@ class PSO:
         self.f1_mode=f1_mode
         self.dim = scenario['dim']
         self.initialization_strategy=initialization_strategy
+        self.stagnation_threshold=stagnation_threshold
+        self.stagnation_tolerance=stagnation_tolerance
+        self.near_zero_tolerance=near_zero_tolerance
     
         #Random number generator,seeded for reproducibility
         self.rng=np.random.default_rng(seed)
@@ -220,6 +225,22 @@ class PSO:
                 self._gbest_f= fits[i]
                 self._gbest_x= self.pos[i].copy()
                 
+    #STAGNATION CHECK: STOPPING CRITERIA 
+    
+    def _is_stagnant(self):
+        if len(self.gbest_history) < self.stagnation_threshold:
+            return False #not enough history yet to judge
+        window= self.gbest_history[-self.stagnation_threshold:] #[-k:] gets the last k elements of the list (so the last 'stagnation_threshold' fitness values from the history)
+        improvement= window[0] - window[-1] #difference between the oldest and newest fitness in the window
+        return improvement < self.stagnation_tolerance # if the improvement is less than the tolernace, it is stagnant, otherwise it is still improving
+    
+    
+    #SWARM RADIUS NEAR ZERO : STOPPING CRITERIA
+    # Returns True if the swarm has collapsed — all particles have crowded into
+    # roughly the same point in search space and diversity is effectively gone.
+    def _swarm_radius_near_zero(self):
+        return np.std(self.pos) < self.near_zero_tolerance
+                
     #MAIN OPTIMIZATION LOOP------------------------------------------------------
     def optimize(self):
         #returns :
@@ -247,6 +268,12 @@ class PSO:
             #record state
             self._record()
             
+            #stop optimization if stagnation detected
+            if self._is_stagnant():
+                break
+            #stop optimization if swarm radius is near zero (swarm has collapsed)
+            if self._swarm_radius_near_zero():
+                break 
         #decode solution to matrix 
         best_solution =decode(self._gbest_x, self.scenario['n_regions'])
         #repair best solution to satisfy constraints
