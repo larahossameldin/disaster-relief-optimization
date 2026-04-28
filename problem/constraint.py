@@ -32,7 +32,7 @@ def repair(X, scenario, max_iters=MAX_REPAIR_ITERS):
     n, m     = scenario["n_regions"], scenario["n_resources"]
     original_shape = X.shape
     if X.ndim == 1:
-        X = X.reshape(scenario["n_regions"], scenario["n_resources"])
+        X = X.reshape(scenario["n_regions"], scenario["n_resources"] , order='F')
     X_r = X.copy()
  
     for _ in range(max_iters):
