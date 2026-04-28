@@ -36,14 +36,14 @@ class RandomInertia:
     
 
 class PSO:
-    def __init__(self,scenario,num_particles=42,max_iterations=200,
-                c1=1.6119147368019613,c2=0.9561633508108678,
+    def __init__(self,scenario,num_particles=67,max_iterations=200,
+                c1=2.543416210994507,c2=0.7428249452572024,
                 inertia=None,
-                bare=False, bare_prob=0.5,
-                ring=False, neighbors=4,
+                bare=True, bare_prob=0.560728580625649,
+                ring=True, neighbors=7,
                 seed=None, 
                 w1=W1, w2=W2, w3=W3,beta=BETA, f1_mode="asymmetric",
-                initialization_strategy='random'):
+                initialization_strategy='demand_proportional'):
         
         self.scenario=scenario
         self.num_particles=num_particles
@@ -66,10 +66,10 @@ class PSO:
         self.rng=np.random.default_rng(seed)
         
         #Inertia strategy, default is linear inertia
-        if inertia is None:
-            self.inertia=RandomInertia(self.rng)
+        if inertia is None or inertia=='linear':
+            self.inertia=LinearInertia()
         else:
-            self.inertia=inertia
+            self.inertia=RandomInertia(self.rng)
         
         #tracking best solution
         self.gbest_history=[] #history of global best fitness values
