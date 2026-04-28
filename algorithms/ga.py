@@ -54,9 +54,11 @@ class DisasterReliefGA:
             return -shared_score
         return -rawScore
 
+    # moved constraint handling into crossover to ensure offspring feasibility early
     def blx(self, parents, offspring_size, ga_instance):
         offspring = []
         idx = 0
+        # wider exploration (alpha=0.5) is now safe due to bounded generation
         alpha = 0.5
         prob = self.crossover_prob
         n = self.scenario_data["n_regions"]
@@ -75,6 +77,8 @@ class DisasterReliefGA:
                     u = np.random.rand()
                     gamma = (1 + 2 * alpha) * u - alpha
                     zi = (1 - gamma) * min_val + gamma * max_val
+                    # enforce feasibility at generation stage
+                    # reduces constraint violations before repair step
                     child[i] = np.clip(zi, Li, Ui)
                 offspring.append(child)
             else:
