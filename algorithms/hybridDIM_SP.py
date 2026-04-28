@@ -13,20 +13,38 @@ from algorithms.pso       import PSO, LinearInertia
 
 RANDOM_SEED            = 42
 TOTAL_GENERATIONS      = 100
-EPOCH_INTERVAL         = 20
+EPOCH_INTERVAL         = 10                     # was 20
 ISLAND_SIZE            = 50
-SIGMA                  = 1.0
-MIN_CLUSTER_SIZE       = 10
-EXTINCTION_THRESHOLD   = 10
+SIGMA                  = 2.51814267620993       # was 1.0
+MIN_CLUSTER_SIZE       = 17                     # was 10
+EXTINCTION_THRESHOLD   = 15                     # was 10
+EXTINCTION_KEEP_RATIO  = 0.35674329395833054    # new constant
 DIVERSITY_PERTURBATION = 0.2
 MAX_ISLANDS = ISLAND_SIZE // MIN_CLUSTER_SIZE
+
+# PSO hyperparameters from best trial
+C1          = 1.9562056063605042
+C2          = 1.3823375101957998
+NEIGHBORS   = 3
+BARE        = True
+RING        = True
+BARE_PROB   = 0.30121215371120186
+INERTIA_TYPE = "random"      # "random" or "linear"
+W_START      = 0.9
+W_END        = 0.4
 
 def seed_all(seed):
     random.seed(seed)
     np.random.seed(seed)
     return np.random.default_rng(seed)
 
-#Spectral-clustering helpers:
+class RandomInertia:
+    def __init__(self, w_start, w_end):
+        self.w_start = w_start
+        self.w_end   = w_end
+    def get(self, step, total_steps):
+        return random.uniform(self.w_start, self.w_end)
+
 def build_similarity_matrix(population, sigma=SIGMA):
     N, dim = population.shape
     W = np.zeros((N, N))
@@ -39,7 +57,6 @@ def build_similarity_matrix(population, sigma=SIGMA):
             W[j, i] = w_ij
         W[i, i] = 1.0
     return W
-
 
 def spectral_cluster(population, fitnesses, max_k, sigma=SIGMA,
                      min_size=MIN_CLUSTER_SIZE, scenario=None):
@@ -73,7 +90,7 @@ def spectral_cluster(population, fitnesses, max_k, sigma=SIGMA,
         members = population[mask].copy()
         if len(members) == 0:
             continue
-        if len(members) < min_size and scenario is not None:# If cluster is too small, pad it by mutating the best individual
+        if len(members) < min_size and scenario is not None:
             best_ind = population[int(np.argmin(fitnesses))]
             while len(members) < min_size:
                 noise  = np.random.normal(0, 0.3, size=best_ind.shape)
@@ -82,8 +99,7 @@ def spectral_cluster(population, fitnesses, max_k, sigma=SIGMA,
         islands.append(members)
     return islands if islands else [population]
 
-
-def _kmeans(X, k, max_iters=50):# Custom K-means clustering (used after spectral embedding)
+def _kmeans(X, k, max_iters=50):
     N       = len(X)
     centers = [X[np.random.randint(N)]]
     for _ in range(k - 1):
@@ -105,7 +121,7 @@ def _kmeans(X, k, max_iters=50):# Custom K-means clustering (used after spectral
                 centers[c] = X[mask].mean(axis=0)
     return labels
 
-#Island class:
+#Island class (updated with best parameters)
 class Island:
     def __init__(self, population, scenario, operator,
                  island_id=0, init_strategy="Random", seed=RANDOM_SEED,
@@ -134,7 +150,6 @@ class Island:
         )
         self._generation = global_step_offset
 
-
         self._pso = None
         self._init_pso_from_population()
 
@@ -144,19 +159,26 @@ class Island:
 
     def _init_pso_from_population(self):
         rng_seed = (self.seed * 1000 + self.island_id) if self.seed is not None else None
-        n_neighbors = min(4, max(2, self.n // 3))
+
+        # Choose inertia strategy based on global INERTIA_TYPE
+        if INERTIA_TYPE == "random":
+            inertia = RandomInertia(W_START, W_END)
+        else:
+            inertia = LinearInertia(w_start=W_START, w_end=W_END)
+
         self._pso = PSO(
             scenario                = self.scenario,
             num_particles           = self.n,
             max_iterations          = self._total_steps,
-            c1                      = 1.5,
-            c2                      = 1.5,
-            inertia                 = LinearInertia(w_start=0.9, w_end=0.4),
-            bare                    = False,
-            ring                    = True,
-            neighbors               = n_neighbors,
+            c1                      = C1,           # updated
+            c2                      = C2,           # updated
+            inertia                 = inertia,
+            bare                    = BARE,         # updated
+            ring                    = RING,         # updated
+            neighbors               = NEIGHBORS,    # updated
             seed                    = rng_seed,
-            initialization_strategy = self.init_strategy
+            initialization_strategy = self.init_strategy,
+            bare_prob               = BARE_PROB     # updated
         )
         self._pso.pos  = self.population.copy()
         self._pso.vel  = np.zeros((self.n, self.dim))
@@ -167,13 +189,13 @@ class Island:
         self._pso._gbest_x = self.population[best_idx].copy()
         self._pso._gbest_f = float(fits[best_idx])
 
-    def _eval_all(self):# Evaluate fitness for all individuals in the island
+    def _eval_all(self):
         return np.array([
             compute_fitness(ind, self.scenario)[0]
             for ind in self.population
         ])
 
-    def _refresh_best(self):# Update best solution and track improvement history
+    def _refresh_best(self):
         fits = self._eval_all()
         idx  = int(np.argmin(fits))
         if fits[idx] < self.best_score:
@@ -184,11 +206,11 @@ class Island:
             self.generations_without_improvement += 1
         self.best_history.append(self.best_score)
         return fits
-    #Extinction event:
+
     def _extinction_event(self):
         fits = self._eval_all()
         sorted_idx = np.argsort(fits)   # ascending: best first
-        n_keep    = max(1, int(0.4 * self.n))
+        n_keep    = max(1, int(EXTINCTION_KEEP_RATIO * self.n))   # use updated ratio
         keep_idx  = sorted_idx[:n_keep]
         replace_idx = sorted_idx[n_keep:]
         n_replace = len(replace_idx)
@@ -264,22 +286,19 @@ class Island:
             self._ga_step(n_steps)
         self._refresh_best()
 
-
 class _FakeGA:
     def __init__(self, population, generations_completed):
         self.population            = population
         self.generations_completed = generations_completed
 
-
 class DIMSPHybrid:
-    def __init__( # Initialize the hybrid system with one initial island
+    def __init__(
         self,
         scenario,
         total_generations = TOTAL_GENERATIONS,
-        epoch_interval    = EPOCH_INTERVAL,
+        epoch_interval    = EPOCH_INTERVAL,      # now 10
         island_size       = ISLAND_SIZE,
-        init_strategy     = "Random",
-        # cluster_strategy  = "large_psi",
+        init_strategy     = "Demand_Proportional",   # updated from "Random"
         seed              = RANDOM_SEED,
         verbose           = False,
     ):
@@ -287,7 +306,6 @@ class DIMSPHybrid:
         self.total_generations = total_generations
         self.epoch_interval    = epoch_interval
         self.island_size       = island_size
-        # self.cluster_strategy  = cluster_strategy
         self.seed              = seed
         self.verbose           = verbose
         self._init_strategy    = init_strategy
@@ -312,17 +330,8 @@ class DIMSPHybrid:
         self.island_count_hist = []
         self.best_solution     = None
         self.best_score        = np.inf
-
-        # Track global generation for step offsets
         self._current_gen = 0
 
-    # def _determine_operator(self, cluster_size, median_size):
-    #     if self.cluster_strategy == "large_psi":
-    #         return "PSO" if cluster_size >= median_size else "GA"
-    #     elif self.cluster_strategy == "small_psi":
-    #         return "GA"  if cluster_size >= median_size else "PSO"
-    #     else:
-    #         return np.random.choice(["PSO", "GA"])
     def _determine_operator(self, cluster_size, median_size):
         """Small clusters → PSO  |  Large clusters → GA  (small-psi strategy)"""
         return "GA" if cluster_size >= median_size else "PSO"
@@ -358,10 +367,11 @@ class DIMSPHybrid:
             if isl.best_score < self.best_score:
                 self.best_score    = isl.best_score
                 self.best_solution = isl.best_solution.copy()
-    #Main loop:
+
     def run(self):
         n_epochs        = self.total_generations // self.epoch_interval
         steps_per_epoch = self.epoch_interval
+
         for epoch in range(n_epochs):
             if epoch > 0:
                 self._run_epoch(self._current_gen)
