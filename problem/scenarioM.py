@@ -109,7 +109,6 @@ def compute_demand(regions, budgets):
         else:
             scale = 1.0
         demand[:, j] = raw[:, j] * scale
-
     return demand
 
 def compute_minimums(demand, fraction=MIN_FRACTION): 
