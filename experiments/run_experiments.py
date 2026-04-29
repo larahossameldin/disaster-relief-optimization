@@ -404,13 +404,11 @@ def exp7_algorithm_comparison(seeds):
     # allocation heatmap — best overall solution
     best_algo = min(algos.items(),
                     key=lambda x: min(r["score"] for r in x[1]))
-    plot_allocation_heatmap(best_algo[1],
-                            title=f"Best Allocation ({best_algo[0]})")
-    _save("exp7_allocation_heatmap")
+    #plot_allocation_heatmap(best_algo[1],title=f"Best Allocation ({best_algo[0]})")
+    #_save("exp7_allocation_heatmap")
 
     # radar chart
-    plot_subobjective_radar(algos)
-    _save("exp7_subobjective_radar")
+    #plot_subobjective_radar(algos)_save("exp7_subobjective_radar")
 
     # diversity over time
     plot_diversity_over_time(algos)
@@ -544,12 +542,12 @@ def plot_diversity_over_time(results_dict):
 #  MAIN
 
 EXP_MAP = {
-    1: exp1_ga_component_study,
-    2: exp2_pso_configs,
+    #1: exp1_ga_component_study,
+    #2: exp2_pso_configs,
     #3: exp3_scenario_comparison,
     4: exp4_init_strategy,
-    5: exp5_f1_modes,
-    6: exp6_selection_operators,
+    #5: exp5_f1_modes,
+    #6: exp6_selection_operators,
     7: exp7_algorithm_comparison,
     8: exp8_diversity,
 }
