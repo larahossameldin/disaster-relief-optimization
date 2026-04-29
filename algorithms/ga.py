@@ -13,7 +13,7 @@ from problem.constraint import repair as repair_solution
 
 
 class DisasterReliefGA:
-    def __init__(self, scenario_data, config_type, init_strategy, max_generations=100, population_size=50 , crossover_prob=0.9, seed=None ,  f1_mode="asymmetric" , sigma_share = 14.218593557890934 , alpha_sharing =  1.102497 , K_tourn = 8):
+    def __init__(self, scenario_data, config_type, init_strategy, max_generations=100, population_size = 105 , crossover_prob=0.9, seed=None ,  f1_mode="asymmetric" , sigma_share = 5.326415353190147 , alpha_sharing =  0.997972445199369 , K_tourn = 9):
 
         self.crossover_prob = crossover_prob
         self.scenario_data = scenario_data
@@ -54,25 +54,32 @@ class DisasterReliefGA:
             return -shared_score
         return -rawScore
 
+    # moved constraint handling into crossover to ensure offspring feasibility early
     def blx(self, parents, offspring_size, ga_instance):
         offspring = []
         idx = 0
-        # alpha=0.3 restricts exploration to 30% beyond the [min_val, max_val] interval
-        # reducing the chance of generating infeasible values that require heavy repair
-        alpha = 0.3
+        # wider exploration (alpha=0.5) is now safe due to bounded generation
+        alpha = 0.5
         prob = self.crossover_prob
+        n = self.scenario_data["n_regions"]
         while len(offspring) < offspring_size[0]:
             parent1 = parents[idx % parents.shape[0], :]
             parent2 = parents[(idx + 1) % parents.shape[0], :]
             if np.random.rand() < prob:
                 child = np.empty_like(parent1)
                 for i in range(len(parent1)):
+                    region_index = i % n
+                    resource_index = i // n
+                    Ui = min(self.scenario_data["capacity"][region_index], self.scenario_data["budget_array"][resource_index])
+                    Li = self.scenario_data["minimums"][region_index][resource_index]
                     min_val = min(parent1[i], parent2[i])
                     max_val = max(parent1[i], parent2[i])
                     u = np.random.rand()
                     gamma = (1 + 2 * alpha) * u - alpha
                     zi = (1 - gamma) * min_val + gamma * max_val
-                    child[i] = zi
+                    # enforce feasibility at generation stage
+                    # reduces constraint violations before repair step
+                    child[i] = np.clip(zi, Li, Ui)
                 offspring.append(child)
             else:
                 offspring.append(parent1.copy())
@@ -88,10 +95,11 @@ class DisasterReliefGA:
         initial_sigma = 50
         decay_factor = 1.0 - (ga_instance.generations_completed / self.max_generations)
         dynamic_sigma = initial_sigma * decay_factor     # step size shrinks as generations progress ( wide exploration early , fine-tuning near the end )
+        n = self.scenario_data["n_regions"]
         for i in range(offspring.shape[0]):
             for j in range(offspring.shape[1]):
-                region_index = j // 3
-                resource_index = j % 3
+                region_index = j % n
+                resource_index = j // n
                 # upper bound per gene can't exceed region capacity or resource budget
                 Ui = min(self.scenario_data["capacity"][region_index], self.scenario_data["budget_array"][resource_index])
                 #align lower bound with problem-defined minimum allocation
@@ -110,12 +118,14 @@ class DisasterReliefGA:
         return np.array(offspring)
 
     def uniform_mutate(self, offspring, ga_instance):
-        mutation_rate = 0.5
+        chromosome_length = offspring.shape[1]
+        mutation_rate = 1 / chromosome_length
+        n = self.scenario_data["n_regions"]
 
         for i in range(offspring.shape[0]):
             for j in range(offspring.shape[1]):
-                region_index = j // 3
-                resource_index = j % 3
+                region_index = j % n
+                resource_index = j // n
                 Ui = min(self.scenario_data["capacity"][region_index],self.scenario_data["budget_array"][resource_index])
                 Li = self.scenario_data["minimums"][region_index][resource_index]
                 r = np.random.rand()
@@ -195,7 +205,7 @@ class DisasterReliefGA:
             best_position, _, _ = self.ga_instance.best_solution()
             best_solution = best_position
 
-        final_repaired_solution = repair_solution(best_solution, self.scenario_data).flatten(order='F')
+        final_repaired_solution = repair_solution(best_solution, self.scenario_data)
         final_score, _ = compute_fitness(final_repaired_solution, self.scenario_data,self.f1_mode)
         convergence_history = [-fit for fit in self.ga_instance.best_solutions_fitness]
 
