@@ -13,7 +13,7 @@ from problem.constraint import repair as repair_solution
 
 
 class DisasterReliefGA:
-    def __init__(self, scenario_data, config_type, init_strategy, max_generations=100, population_size=50 , crossover_prob=0.9, seed=None ,  f1_mode="asymmetric" , sigma_share = 14.218593557890934 , alpha_sharing =  1.102497 , K_tourn = 8):
+    def __init__(self, scenario_data, config_type, init_strategy, max_generations=100, population_size = 125 , crossover_prob=0.9, seed=None ,  f1_mode="asymmetric" , sigma_share = 5.306996876695434 , alpha_sharing =  1.1799110202263334 , K_tourn = 10):
 
         self.crossover_prob = crossover_prob
         self.scenario_data = scenario_data
@@ -110,7 +110,8 @@ class DisasterReliefGA:
         return np.array(offspring)
 
     def uniform_mutate(self, offspring, ga_instance):
-        mutation_rate = 0.5
+        chromosome_length = offspring.shape[1]
+        mutation_rate = 1 / chromosome_length
 
         for i in range(offspring.shape[0]):
             for j in range(offspring.shape[1]):

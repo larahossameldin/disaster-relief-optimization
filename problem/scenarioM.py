@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 DEFAULT_BUDGETS = {
     "food":     1000,
@@ -82,6 +83,14 @@ DEFAULT_REGIONS = [
     },
 ]
 
+
+ASYMMETRIC_REGIONS = copy.deepcopy(DEFAULT_REGIONS)
+ASYMMETRIC_REGIONS[3]["urgency"]           = 1.00
+ASYMMETRIC_REGIONS[3]["access_difficulty"] = 0.98
+ASYMMETRIC_REGIONS[3]["need_score"]        = 0.95
+BUDGET_MILD   = DEFAULT_BUDGETS
+BUDGET_SEVERE = {res: round(v * 0.6, 2) for res, v in DEFAULT_BUDGETS.items()}
+
 def compute_demand(regions, budgets): 
     'dij​=need_scorei​×populationi​×resource_weightij​×scale_factor'
     'scale_factorj​=Sj/∑i​need_scorei​×populationi​×resource_weightij​​'
@@ -100,7 +109,6 @@ def compute_demand(regions, budgets):
         else:
             scale = 1.0
         demand[:, j] = raw[:, j] * scale
-
     return demand
 
 def compute_minimums(demand, fraction=MIN_FRACTION): 

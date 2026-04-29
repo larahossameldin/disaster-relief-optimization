@@ -32,7 +32,7 @@ def repair(X, scenario, max_iters=MAX_REPAIR_ITERS):
     n, m     = scenario["n_regions"], scenario["n_resources"]
     original_shape = X.shape
     if X.ndim == 1:
-        X = X.reshape(scenario["n_regions"], scenario["n_resources"])
+        X = X.reshape(scenario["n_regions"], scenario["n_resources"] , order='F')
     X_r = X.copy()
  
     for _ in range(max_iters):
@@ -51,7 +51,10 @@ def repair(X, scenario, max_iters=MAX_REPAIR_ITERS):
                 changed = True
         if not changed:
             break
-    return X_r.reshape(original_shape)
+    # since the 1D chromosome was reshaped into a 2D matrix with ('F') order, it must also be flattened back using 'F' order to preserve the original mapping
+    if len(original_shape) == 1:
+        return X_r.flatten(order='F')
+    return X_r
 
 def compute_penalty(X, scenario, coeff=PENALTY_COEFF):
     budget   = scenario["budget_array"]   # (m,)
