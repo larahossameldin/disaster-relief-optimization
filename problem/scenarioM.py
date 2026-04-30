@@ -84,12 +84,6 @@ DEFAULT_REGIONS = [
 ]
 
 
-ASYMMETRIC_REGIONS = copy.deepcopy(DEFAULT_REGIONS)
-ASYMMETRIC_REGIONS[3]["urgency"]           = 1.00
-ASYMMETRIC_REGIONS[3]["access_difficulty"] = 0.98
-ASYMMETRIC_REGIONS[3]["need_score"]        = 0.95
-BUDGET_MILD   = DEFAULT_BUDGETS
-BUDGET_SEVERE = {res: round(v * 0.6, 2) for res, v in DEFAULT_BUDGETS.items()}
 
 def compute_demand(regions, budgets): 
     'dij​=need_scorei​×populationi​×resource_weightij​×scale_factor'
@@ -109,7 +103,6 @@ def compute_demand(regions, budgets):
         else:
             scale = 1.0
         demand[:, j] = raw[:, j] * scale
-
     return demand
 
 def compute_minimums(demand, fraction=MIN_FRACTION): 
@@ -121,36 +114,36 @@ def compute_minimums(demand, fraction=MIN_FRACTION):
     return demand * fraction
 
 
-def get_scenario(regions=None, budgets=None, fraction=MIN_FRACTION): 
-    """
-    est5dmoha 3shan t3rfo el scenarios yargala w elheta de so AI (yarit mhdsh y2ra el3bat da bs its just there)
-    Build and return the full scenario dictionary.
+def get_scenario(scenario_name=None, regions=None, budgets=None, fraction=MIN_FRACTION):
+    
+    if scenario_name == "Epidemic":
+        regions = copy.deepcopy(DEFAULT_REGIONS)
+        for r in regions:
+            r["urgency"]    = min(r["urgency"] * 1.3, 1.0)
+            r["need_score"] = min(r["need_score"] * 1.2, 1.0)
 
-    Parameters
-    ----------
-    regions      : list of region dicts, or None → uses DEFAULT_REGIONS
-    budgets      : dict {"food": ..., "water": ..., "medicine": ...}
-                   or None → uses DEFAULT_BUDGETS
-    min_fraction : minimum allocation fraction of demand (default 0.1)
+    elif scenario_name == "Floods":
+        regions = copy.deepcopy(DEFAULT_REGIONS)
+        for r in regions:
+            r["access_difficulty"] = min(r["access_difficulty"] * 1.4, 1.0)
 
-    Returns
-    -------
-    dict with keys:
-        regions       - list of region dicts
-        budgets       - resource budget dict
-        n_regions     - int (8 by default)
-        n_resources   - int (3)
-        dim           - int (n_regions * n_resources = 24 by default)
-        resource_order- list of resource names in order
-        demand        - np.ndarray (n_regions, 3)
-        minimums      - np.ndarray (n_regions, 3)
-        need          - np.ndarray (n_regions,)   — need scores
-        urgency       - np.ndarray (n_regions,)   — urgency scores
-        access        - np.ndarray (n_regions,)   — access difficulty
-        capacity      - np.ndarray (n_regions,)   — max absorb per region
-        budget_array  - np.ndarray (3,)            — budgets as array
-        names         - list of region name strings
-    """
+    elif scenario_name == "Large Disaster":
+        regions = copy.deepcopy(DEFAULT_REGIONS)
+        for r in regions:
+            r["population"] = int(r["population"] * 2)
+        budgets = {res: round(v * 0.6, 2) for res, v in DEFAULT_BUDGETS.items()}
+
+    elif scenario_name == "Resource Shortage":
+        budgets = {"food": DEFAULT_BUDGETS["food"], "water": round(DEFAULT_BUDGETS["water"] * 0.5, 2), "medicine": round(DEFAULT_BUDGETS["medicine"] * 0.3, 2)}
+
+    elif scenario_name == "Worst Case":
+        regions = copy.deepcopy(DEFAULT_REGIONS)
+        for r in regions:
+            r["urgency"]           = min(r["urgency"] * 1.4, 1.0)
+            r["access_difficulty"] = min(r["access_difficulty"] * 1.5, 1.0)
+            r["population"]        = int(r["population"] * 1.3)
+        budgets = {res: round(v * 0.5, 2) for res, v in DEFAULT_BUDGETS.items()}
+
     if regions is None:
         regions = DEFAULT_REGIONS
     if budgets is None:
@@ -176,8 +169,7 @@ def get_scenario(regions=None, budgets=None, fraction=MIN_FRACTION):
         "urgency":  np.array([r["urgency"]            for r in regions]),
         "access":   np.array([r["access_difficulty"]  for r in regions]),
         "capacity": np.array([r["capacity"]           for r in regions]),
-        "budget_array": np.array([budgets[res] for res in RESOURCE_ORDER],
-                                  dtype=float),
+        "budget_array": np.array([budgets[res] for res in RESOURCE_ORDER], dtype=float),
         "names":    [r["name"] for r in regions],
     }
     return scenario

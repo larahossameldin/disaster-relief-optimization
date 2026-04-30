@@ -64,7 +64,31 @@ That's it. No other libraries needed for Member 1's files.
 ---
  
 ## How to Load the Scenario (Everyone needs this)
- 
+ ## Disaster Scenarios
+
+Six scenarios are available. Pass the name as a string to `get_scenario()`. No other code changes needed.
+
+```python
+from scenarioM import get_scenario
+
+sc = get_scenario()                          # Baseline (default)
+sc = get_scenario("Epidemic")                # High urgency, all regions more critical
+sc = get_scenario("Floods")                  # Access difficulty increased, harder to reach
+sc = get_scenario("Large Disaster")          # Population doubles, budget cut to 60%
+sc = get_scenario("Resource Shortage")       # Water 50%, medicine 30% of normal budget
+sc = get_scenario("Worst Case")              # Urgency + access + population all worsened, budget halved
+```
+
+| Scenario | What Changes | What It Tests |
+|---|---|---|
+| Baseline | Nothing | Reference point |
+| Epidemic | Urgency ×1.3, need ×1.2 | Algorithm prioritizes critical regions |
+| Floods | Access difficulty ×1.4 | Delivery cost handling (f3) |
+| Large Disaster | Population ×2, budget ×0.6 | Constraint handling under pressure |
+| Resource Shortage | Water ×0.5, medicine ×0.3 | Resource-specific allocation |
+| Worst Case | Urgency ×1.4, access ×1.5, population ×1.3, budget ×0.5 | Worst-case performance |
+
+Everything else (`sc["demand"]`, `sc["urgency"]`, etc.) works exactly the same — just swap the name.
 ```python
 from scenarioM import get_scenario
  
