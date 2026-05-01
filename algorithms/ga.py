@@ -13,7 +13,7 @@ from problem.constraint import repair as repair_solution
 
 
 class DisasterReliefGA:
-    def __init__(self, scenario_data, config_type, init_strategy, max_generations=100, population_size = 105 , crossover_prob=0.9, seed=None ,  f1_mode="asymmetric" , sigma_share = 5.326415353190147 , alpha_sharing =  0.997972445199369 , K_tourn = 9):
+    def __init__(self, scenario_data, init_strategy,config_type = None , max_generations=100, population_size = 105 , crossover_prob=0.9, seed=None ,  f1_mode="asymmetric" , sigma_share = 5.326415353190147 , alpha_sharing =  0.997972445199369 , K_tourn = 9 , selection="tournament",crossover="blx", mutation="nonuniform",elitism=2 , mutation_rate =None):
 
         self.crossover_prob = crossover_prob
         self.scenario_data = scenario_data
@@ -28,9 +28,25 @@ class DisasterReliefGA:
         self.sigma_share = sigma_share
         self.alpha_sharing = alpha_sharing
         self.K_tourn = K_tourn
+        if config_type is not None:
+             selection, crossover, mutation, elitism = self._parse_config_type(config_type)
+        self.selection = selection
+        self.crossover = crossover
+        self.mutation = mutation
+        self.elitism = elitism
+        self.mutation_rate = mutation_rate
+    @staticmethod
+    def _parse_config_type(config_type):
+        mapping = {
+            "baseline": ("tournament", "blx", "nonuniform", 2),
+            "rws": ("rws", "blx", "nonuniform", 2),
+            "uniform_crossover": ("tournament", "uniform", "nonuniform", 2),
+            "uniform_mutation": ("tournament", "blx", "uniform", 2),
+            "generational": ("tournament", "blx", "nonuniform", 0),
+        }
+        return mapping.get(config_type, ("tournament", "blx", "nonuniform", 2))
 
     def initialize_population(self, seed):
-
         if self.init_strategy == "Demand_Proportional":
             return initialise_demand_proportional(self.population_size, self.scenario_data, seed)
         elif self.init_strategy == "Urgency_Biased":
@@ -91,7 +107,7 @@ class DisasterReliefGA:
         # we need ONE best allocation plan not a fit population
         # so we pick the upper bound (1/chr_len) for better search space coverage
         chromosome_length = offspring.shape[1]
-        mutation_rate = 1 / chromosome_length
+        mutation_rate = self.mutation_rate if self.mutation_rate is not None else 1 / chromosome_length
         initial_sigma = 50
         decay_factor = 1.0 - (ga_instance.generations_completed / self.max_generations)
         dynamic_sigma = initial_sigma * decay_factor     # step size shrinks as generations progress ( wide exploration early , fine-tuning near the end )
@@ -119,7 +135,7 @@ class DisasterReliefGA:
 
     def uniform_mutate(self, offspring, ga_instance):
         chromosome_length = offspring.shape[1]
-        mutation_rate = 1 / chromosome_length
+        mutation_rate = self.mutation_rate if self.mutation_rate is not None else 1 / chromosome_length
         n = self.scenario_data["n_regions"]
 
         for i in range(offspring.shape[0]):
@@ -148,31 +164,16 @@ class DisasterReliefGA:
         # this runs after each generation to make sure all solutions are valid before moving on
         ga_instance.population = self.repair_population(ga_instance.population)
 
-
     def run(self):
         if self.seed is not None:
             np.random.seed(self.seed)
             random.seed(self.seed)
         population = self.initialize_population(self.seed)
 
-        #Baseline Configuration
-        parent_selection = "tournament"
-        K_tourn = self.K_tourn
-        crossover_type = self.blx
-        mutation_type = self.nonuniform_mutate
-        elitism = 2
-
-        if self.config_type == "baseline":
-            pass
-        elif self.config_type == "rws":
-            parent_selection = "rws"
-            K_tourn = None
-        elif self.config_type == "uniform_crossover":
-            crossover_type = "uniform"
-        elif self.config_type == "uniform_mutation":
-            mutation_type = self.uniform_mutate
-        elif self.config_type == "generational":
-            elitism = 0
+        parent_selection = "rws" if self.selection == "rws" else "tournament"
+        K_tourn = None if self.selection == "rws" else self.K_tourn
+        crossover_type = "uniform" if self.crossover == "uniform" else self.blx
+        mutation_type = self.uniform_mutate if self.mutation == "uniform" else self.nonuniform_mutate
 
         self.ga_instance = pygad.GA(
             num_generations=self.max_generations,
@@ -184,10 +185,10 @@ class DisasterReliefGA:
             crossover_type=crossover_type,
             crossover_probability=self.crossover_prob,
             mutation_type=mutation_type,
-            keep_elitism=elitism,
+            keep_elitism=self.elitism,
             stop_criteria=["saturate_20"],
             on_generation=self.on_generation_complete,
-            random_seed=self.seed
+            random_seed=self.seed,
         )
 
         self.ga_instance.run()
@@ -197,7 +198,7 @@ class DisasterReliefGA:
 
         FinalPopulation = self.ga_instance.population
 
-        if self.config_type == "generational":
+        if self.elitism == 0:
             final_fitnesses = self.ga_instance.last_generation_fitness
             best_idx = np.argmax(final_fitnesses)
             best_solution = FinalPopulation[best_idx]
@@ -210,7 +211,6 @@ class DisasterReliefGA:
         convergence_history = [-fit for fit in self.ga_instance.best_solutions_fitness]
 
         return final_repaired_solution, final_score, convergence_history, FinalPopulation
-
 
 if __name__ == "__main__":
     scenario = get_scenario()
