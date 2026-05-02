@@ -552,40 +552,93 @@ with st.sidebar:
     # ── GA parameters ─────────────────────────────────────────────────────────
     elif algo == "GA":
         max_generations = st.slider("Max Generations", 50, 500, 150, 50)
-        population_size = st.slider("Population Size", 20, 200, 100, 10)
-        config_type = st.selectbox(
-            "Config Type",
-            ["baseline", "rws", "uniform_crossover", "uniform_mutation", "generational"],
-            help="baseline = Tournament + BLX + Non-Uniform (recommended)"
-        )
+        population_size = st.slider("Population Size", 20, 200, 100, 5)
+
         init_strat = st.selectbox(
             "Init Strategy",
             ["Demand_Proportional", "Urgency_Biased", "Random"],
             key="ga_init"
         )
 
-        # Mutation rate: auto (1/24) or custom
-        custom_mut = st.toggle(
-            "Custom Mutation Rate",
-            value=False,
-            help="Off = auto (1 / chromosome_length = 1/24 ≈ 0.042). "
-                 "On = set your own rate."
-        )
-        if custom_mut:
-            mutation_rate = st.slider(
-                "Mutation Rate", 0.01, 0.50, 0.04, 0.01,
-                help="Probability that any single gene is mutated."
+        with st.expander("⚙️ Advanced settings", expanded=False):
+
+            # ── Crossover ──────────────────────────────────────────────────
+            st.markdown("**Crossover**")
+            crossover = st.radio(
+                "crossover_type", ["BLX-α", "Uniform"],
+                key="ga_crossover", label_visibility="collapsed",
+                help="BLX-α = blend crossover (recommended). Uniform = gene-wise random mix."
             )
-        else:
-            mutation_rate = None
-            st.caption("Mutation rate: **auto** (1 / 24 ≈ 0.042)")
+            crossover_val = "blx" if crossover == "BLX-α" else "uniform"
+
+            # ── Mutation ───────────────────────────────────────────────────
+            st.markdown("**Mutation**")
+            mutation = st.radio(
+                "mutation_type", ["Non-uniform", "Uniform"],
+                key="ga_mutation", label_visibility="collapsed",
+                help="Non-uniform = step size shrinks over generations. Uniform = random reset."
+            )
+            mutation_val = "nonuniform" if mutation == "Non-uniform" else "uniform"
+
+            # ── Selection ──────────────────────────────────────────────────
+            st.markdown("**Selection**")
+            selection = st.radio(
+                "selection_type", ["Tournament", "Roulette wheel"],
+                key="ga_selection", label_visibility="collapsed",
+                help="Tournament = deterministic pressure. Roulette = fitness-proportionate."
+            )
+            selection_val = "tournament" if selection == "Tournament" else "rws"
+
+            # ── K (tournament size) — only when Tournament is active ────────
+            if selection_val == "tournament":
+                k_tourn = st.slider(
+                    "K (tournament size)", 2, 20, 9, 1,
+                    help="Number of candidates drawn per tournament round. "
+                         "Higher K = more selection pressure."
+                )
+            else:
+                k_tourn = 9   # irrelevant for RWS but keep default
+
+            # ── Elitism ────────────────────────────────────────────────────
+            elitism = st.slider(
+                "Elitism", 0, 10, 2, 1,
+                help="Number of best solutions carried unchanged into the next generation. "
+                     "0 = generational model (no elitism)."
+            )
+
+            # ── Crossover rate ─────────────────────────────────────────────
+            crossover_prob = st.number_input(
+                "Crossover rate  *ideal 0.6 – 0.9*",
+                min_value=0.10, max_value=1.00, value=0.90, step=0.05,
+                format="%.2f",
+                help="Probability that two parents actually recombine. "
+                     "Below this threshold, parent1 is copied unchanged."
+            )
+
+            # ── Mutation rate ──────────────────────────────────────────────
+            mutation_rate_input = st.number_input(
+                "Mutation rate  *ideal 0.01 – 0.0417*",
+                min_value=0.001, max_value=0.500,
+                value=round(1 / 24, 4),   # auto default = 1/24 ≈ 0.0417
+                step=0.001,
+                format="%.4f",
+                help="Per-gene mutation probability. "
+                     "Default 1/24 ≈ 0.0417 (one gene per chromosome on average)."
+            )
+            mutation_rate = float(mutation_rate_input)
 
         algo_params = dict(
             max_generations=max_generations,
             population_size=population_size,
-            config_type=config_type,
+            config_type=None,           # individual operator params used instead
             init_strategy=init_strat,
             seed=seed,
+            selection=selection_val,
+            crossover=crossover_val,
+            mutation=mutation_val,
+            elitism=elitism,
+            K_tourn=k_tourn,
+            crossover_prob=crossover_prob,
             mutation_rate=mutation_rate,
         )
         x_label = "Generation"
@@ -763,7 +816,7 @@ if run_clicked:
 
 
 # =============================================================================
-# SECTION 9 — COMPARISON 
+# SECTION 9 — COMPARISON  
 # =============================================================================
 
 elif compare_clicked:
