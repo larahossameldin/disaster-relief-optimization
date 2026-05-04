@@ -207,10 +207,10 @@ class DisasterReliefGA:
             best_solution = best_position
 
         final_repaired_solution = repair_solution(best_solution, self.scenario_data)
-        final_score, _ = compute_fitness(final_repaired_solution, self.scenario_data,self.f1_mode)
+        final_score, details = compute_fitness(final_repaired_solution, self.scenario_data,self.f1_mode)
         convergence_history = [-fit for fit in self.ga_instance.best_solutions_fitness]
 
-        return final_repaired_solution, final_score, convergence_history, FinalPopulation
+        return final_repaired_solution, final_score, convergence_history, FinalPopulation , details
 
 if __name__ == "__main__":
     scenario = get_scenario()
@@ -234,15 +234,21 @@ if __name__ == "__main__":
             seed=42
         )
 
-        sol, score, hist, pop = ga_optimizer.run()
-        final_results[config_name] = score
-
+        sol, score, hist, pop, details = ga_optimizer.run()
+        final_results[config_name] = {
+            "score": score,
+            "f1": details['f1'],
+            "f2": details['f2'],
+            "f3": details['f3']
+        }
     baseline_name = configs_dict["baseline"]
-    baseline_score = final_results[baseline_name]
+    baseline_score = final_results[baseline_name]["score"]
 
     print("Results (difference from baseline):\n")
 
-    for name, score in final_results.items():
+    for name, data in final_results.items():
+        score = data["score"]
         diff = baseline_score - score
+        f1, f2, f3 = data["f1"], data["f2"], data["f3"]
 
-        print(f"{name.ljust(50)} {score:.4f} | Δ = {diff:+.4f}")
+        print(f"{name.ljust(50)} Score: {score:.4f} | Δ = {diff:+.4f} | f1={f1:.2f}, f2={f2:.2f}, f3={f3:.2f}")
