@@ -402,5 +402,94 @@ def build_all_configs():
         bare=False, ring=False, c1=0.5, c2=2.5, num_particles=30,
         inertia=RandomInertia(np.random.default_rng(13)),
         initialization_strategy='demand_proportional')
+    
+    
+    # GROUP 7 — SCENARIO  (same baseline PSO, different disaster context)
+    # Baseline: canonical, global, balanced c1=c2=1.5, linear inertia, 30 particles
+
+    add("Scenario-Default",
+        bare=False, ring=False, c1=1.5, c2=1.5, num_particles=30,
+        scenario=get_scenario())
+
+    add("Scenario-Epidemic",
+        bare=False, ring=False, c1=1.5, c2=1.5, num_particles=30,
+        scenario=get_scenario("Epidemic"))
+
+    add("Scenario-Floods",
+        bare=False, ring=False, c1=1.5, c2=1.5, num_particles=30,
+        scenario=get_scenario("Floods"))
+
+    add("Scenario-LargeDisaster",
+        bare=False, ring=False, c1=1.5, c2=1.5, num_particles=30,
+        scenario=get_scenario("Large Disaster"))
+
+    add("Scenario-ResourceShortage",
+        bare=False, ring=False, c1=1.5, c2=1.5, num_particles=30,
+        scenario=get_scenario("Resource Shortage"))
+
+    add("Scenario-WorstCase",
+        bare=False, ring=False, c1=1.5, c2=1.5, num_particles=30,
+        scenario=get_scenario("Worst Case"))
+
+    # Cross: hardest scenario × best-performing init strategy
+    add("WorstCase-UrgencyInit",
+        bare=False, ring=False, c1=1.5, c2=1.5, num_particles=30,
+        scenario=get_scenario("Worst Case"),
+        initialization_strategy='urgency_biased')
+
+    add("WorstCase-LargeSwarm",
+        bare=False, ring=False, c1=1.5, c2=1.5, num_particles=50,
+        scenario=get_scenario("Worst Case"),
+        initialization_strategy='urgency_biased')
 
     return configs
+
+if __name__ == "__main__":
+    import pandas as pd
+
+    DEFAULT_SCENARIO = get_scenario()
+    configs = build_all_configs()
+    results = []
+
+    for label, kwargs in configs:
+        # use the scenario embedded in kwargs, or fall back to default
+        scenario = kwargs.pop("scenario", DEFAULT_SCENARIO)
+
+        print(f"\n{'='*55}")
+        print(f"  {label}")
+        print(f"{'='*55}")
+
+        pso = PSO(scenario=scenario, **kwargs)
+        best_fitness, best_solution, history = pso.optimize()
+
+        _, details = compute_fitness(best_solution, scenario)
+
+        print(f"  Best fitness : {best_fitness:.4f}")
+        print(f"  f1 (suffer)  : {details['f1']:.4f}")
+        print(f"  f2 (waste)   : {details['f2']:.4f}")
+        print(f"  f3 (delivery): {details['f3']:.4f}")
+        print(f"  penalty      : {details['penalty']:.4f}")
+        print(f"  feasible     : {details['penalty'] < 1e-6}")
+        print(f"  convergence  : iter {np.argmin(history)+1}/{len(history)}")
+
+        results.append({
+            "config"    : label,
+            "fitness"   : round(best_fitness, 4),
+            "f1"        : round(details["f1"], 4),
+            "f2"        : round(details["f2"], 4),
+            "f3"        : round(details["f3"], 4),
+            "penalty"   : round(details["penalty"], 4),
+            "feasible"  : details["penalty"] < 1e-6,
+            "converge"  : int(np.argmin(history) + 1),
+        })
+
+    # ── Summary table ────────────────────────────────────────────────────────
+    df = pd.DataFrame(results).sort_values("fitness")
+    print(f"\n{'='*55}")
+    print("  RESULTS SUMMARY  (sorted by fitness)")
+    print(f"{'='*55}")
+    print(df.to_string(index=False))
+
+    print(f"\n  Best config  : {df.iloc[0]['config']}")
+    print(f"  Best fitness : {df.iloc[0]['fitness']}")
+    print(f"  All feasible : {df['feasible'].all()}")
