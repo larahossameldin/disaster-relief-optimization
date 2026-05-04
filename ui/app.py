@@ -17,11 +17,6 @@ if not USE_MOCK:
     from algorithms.ga import DisasterReliefGA
     from algorithms.hybridDIM_SP import DIMSPHybrid
 
-
-# =============================================================================
-# SECTION 1 — SCENARIO DATA
-# =============================================================================
-
 SCENARIO_OPTIONS = [
     "Baseline",
     "Epidemic",
