@@ -35,7 +35,7 @@ def run_ga(params, n_runs, trial_number):
             population_size=params["population_size"]
         )
 
-        _, best_f, _, _ = ga.run()
+        _, best_f, _, _ , _= ga.run()
         fitnesses.append(best_f)
 
     return float(np.mean(fitnesses))

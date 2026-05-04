@@ -105,13 +105,23 @@ def compute_demand(regions, budgets):
         demand[:, j] = raw[:, j] * scale
     return demand
 
-def compute_minimums(demand, fraction=MIN_FRACTION): 
-    'mij'
-    """
-    Minimum allocation per region per resource = fraction x demand.
-    Default fraction = 0.1 → every region gets at least 10% of what it needs.
-    """
-    return demand * fraction
+
+
+
+def compute_minimums(demand, fraction, budget_array=None):
+    mins = demand * fraction
+    if budget_array is not None:
+        for j in range(3):
+            if mins[:, j].sum() > budget_array[j]:
+                mins[:, j] *= budget_array[j] / mins[:, j].sum() * 0.95
+    return mins
+
+# true_need = compute_true_need(regions)  #hashof lsa h7ot elcode da feen btw this makes hard scenarios ele fihom budget change compute by true need msh el demand bs el flood w epidemic w klam da zai mhwa bdal ma ahot flag f kol scenario by2ol hwa true need wla da elnyla eltanya
+# # after computing both:
+# if true_need.sum() > sum(budgets.values()) * 1.05:       
+#     scenario["demand"] = true_need   # scarcity detected, use true need
+# else:
+#     scenario["demand"] = demand      # easy scenario, original behaviour
 
 
 def get_scenario(scenario_name=None, regions=None, budgets=None, fraction=MIN_FRACTION):
@@ -153,7 +163,17 @@ def get_scenario(scenario_name=None, regions=None, budgets=None, fraction=MIN_FR
     m   = len(RESOURCE_ORDER)
     dim = n * m
 
-    demand   = compute_demand(regions, budgets)
+    budget_array = np.array([budgets[res] for res in RESOURCE_ORDER], dtype=float)
+    true_need    = compute_demand(regions, DEFAULT_BUDGETS)  # always on default scale
+    scaled_demand = compute_demand(regions, budgets)         # scaled to actual budget
+
+    # Use true need only when budget was actually cut (per-resource check)
+    use_true_need = any(
+        true_need[:, j].sum() > budget_array[j] * 1.01
+        for j in range(m)
+    )
+    
+    demand = true_need if use_true_need else scaled_demand
     minimums = compute_minimums(demand, fraction=fraction)
 
     scenario = {
@@ -172,6 +192,7 @@ def get_scenario(scenario_name=None, regions=None, budgets=None, fraction=MIN_FR
         "budget_array": np.array([budgets[res] for res in RESOURCE_ORDER], dtype=float),
         "names":    [r["name"] for r in regions],
     }
+
     return scenario
 
 'TEST TEST TEST TEST'
