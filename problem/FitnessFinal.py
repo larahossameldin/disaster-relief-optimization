@@ -197,10 +197,13 @@ def compute_fitness(solution, scenario, f1_mode=F1_MODE, beta=BETA,
     # --- decode: accept both flat vectors and matrices ----------------------
     sol = np.asarray(solution, dtype=float)
     if sol.ndim == 1:
-        X = decode(sol, scenario["n_regions"])   # BUG FIX: was creating a tuple
+        X = decode(sol, scenario["n_regions"])   
     else:
         X = sol.copy()
-
+        
+    # --- residual penalty (X is 2D here, so compute_penalty works) ----------
+    penalty  = compute_penalty(X, scenario)              
+    
     # --- repair before evaluating -------------------------------------------
     X = repair(X, scenario)                      # X is always 2D after this
 
@@ -218,9 +221,6 @@ def compute_fitness(solution, scenario, f1_mode=F1_MODE, beta=BETA,
     score_f1 = f1_fn(X, demand, urgency, beta=beta)
     score_f2 = f2_waste(X, demand)
     score_f3 = f3_delivery(X, access, urgency, demand)   # BUG FIX: pass demand
-
-    # --- residual penalty (X is 2D here, so compute_penalty works) ----------
-    penalty  = compute_penalty(X, scenario)              # BUG FIX: X is 2D
 
     # --- optional normalisation ---------------------------------------------
     if norm is not None:

@@ -22,8 +22,8 @@
 #   penalty  = compute_penalty(X_fixed, scenario)   # should be ~0.0
 
 import numpy as np
-PENALTY_COEFF = 10.0
-MAX_REPAIR_ITERS = 10
+PENALTY_COEFF = 10000.0
+MAX_REPAIR_ITERS = 2
 FEASIBILITY_TOL = 1e-6
 def repair(X, scenario, max_iters=MAX_REPAIR_ITERS):
     minimums = scenario["minimums"]   # (n, m)
