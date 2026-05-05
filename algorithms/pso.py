@@ -36,7 +36,7 @@ class RandomInertia:
     
 
 class PSO:
-    def __init__(self,scenario,num_particles=64,max_iterations=200,
+    def __init__(self,scenario,num_particles=64,max_iterations=499,
                 c1=1.5882518918201334,c2=0.6788100670905194,
                 inertia='random',
                 bare=False, bare_prob=0.5,
