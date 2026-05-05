@@ -977,54 +977,54 @@ def exp9_population_size(seeds):
  """
 EXP_MAP = {
     # Mirna
-    # 1: exp1_ga_components,
-    # 2: exp2_pso_update_rules,
-    # 3: exp2_pso_topology,
+    1: exp1_ga_components,
+    2: exp2_pso_update_rules,
+    3: exp2_pso_topology,
 
     #Ahmed
-    # 4: exp2_pso_balance,
-    # 5: exp2_pso_inertia,
-    # 6: exp2_pso_swarm_size,
+    4: exp2_pso_balance,
+    5: exp2_pso_inertia,
+    6: exp2_pso_swarm_size,
 
-    # Lara 
-    # 7: exp2_pso_bonus,
-    # 8: exp3_scenarios, 
-    # 9: exp4_init_strategies,
+    #Lara 
+    7: exp2_pso_bonus,
+    8: exp3_scenarios, 
+    9: exp4_init_strategies,
 
-    # Mariam
-    # 10: exp5_f1_modes,
-    # 11: exp6_algorithm_comparison, 
-    # 12: exp7_diversity,
+    #Mariam
+    10: exp5_f1_modes,
+    11: exp6_algorithm_comparison, 
+    12: exp7_diversity,
 
-    # Nour 
-    # 13: exp8_hybrid_islands, 
-    # 14: exp9_population_size, 
+    #Nour 
+    13: exp8_hybrid_islands, 
+    14: exp9_population_size, 
  }
  
 EXP_DESCRIPTIONS = {
     # Mirna
-    # 1: "GA Component Study",
-    # 2: "PSO Update Rules (Canonical vs Bare-bones)",
-    # 3: "PSO Topology (Global vs Ring)",
+    1: "GA Component Study",
+    2: "PSO Update Rules (Canonical vs Bare-bones)",
+    3: "PSO Topology (Global vs Ring)",
 
     #Ahmed
-    # 4: "PSO Cognitive vs Social Balance (c1/c2)",
-    # 5: "PSO Inertia Schedule (Linear vs Random)",
-    # 6: "PSO Swarm Size Study",
+    4: "PSO Cognitive vs Social Balance (c1/c2)",
+    5: "PSO Inertia Schedule (Linear vs Random)",
+    6: "PSO Swarm Size Study",
 
-    # Lara 
-    # 7: "PSO Bonus Combinations",
-    # 8: "Scenario Comparison (6 disaster scenarios)",
-    # 9: "Initialization Strategies (GA/PSO/Hybrid)",
+    #Lara
+    7: "PSO Bonus Combinations",
+    8: "Scenario Comparison (6 disaster scenarios)",
+    9: "Initialization Strategies (GA/PSO/Hybrid)",
 
-    # Mariam
-    # 10: "f1 Mode Sensitivity (asymmetric, absolute, squared, relative)",
-    # 11: "Algorithm Comparison (GA vs PSO vs Hybrid)",
-    # 12: "Diversity Preservation (Fitness Sharing)",
+    #Mariam
+    10: "f1 Mode Sensitivity (asymmetric, absolute, squared, relative)",
+    11: "Algorithm Comparison (GA vs PSO vs Hybrid)",
+    12: "Diversity Preservation (Fitness Sharing)",
 
-    # Nour 
-    # 13: "Hybrid Island Dynamics (Epoch interval & Island size)",
-    # 14: "Population Size Study (GA, PSO, Hybrid)",
+    #Nour  
+    13: "Hybrid Island Dynamics (Epoch interval & Island size)",
+    14: "Population Size Study (GA, PSO, Hybrid)",
 }
  
  
