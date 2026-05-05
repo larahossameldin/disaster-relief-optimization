@@ -2,12 +2,12 @@
 Run one  :  python experiments/run_experiments.py --exp 1
 Run all  :  python experiments/run_experiments.py
 
-Seeds    :  python experiments/run_experiments.py --seeds 30  estakhdmo da ya gma3a fy elterminal 
-            just copy paste it into the terminal bas boso ta7t fy akhr elcode fy elmain w 23mlo uncomment 
+Seeds    :  python experiments/run_experiments.py --seeds 30  
+            estakhdmo da ya gma3a fy elterminal just copy paste it into the terminal 
+            bas boso ta7t fy akhr elcode fy elmain w 23mlo uncomment 
             le elexperiments elly hat3mlolha run bas 
 
-
-Verbose  :  python experiments/run_experiments.py --exp 7 --seeds 10 
+  :  python experiments/run_experiments.py --exp 7 --seeds 10 
 """
 
 import sys
@@ -59,7 +59,7 @@ plt.rcParams.update({                        # Update global matplotlib plotting
 })
  
 # UTILITIES
- 
+
 def _save(name):
     plt.savefig(os.path.join(PLOTS_DIR, f"{name}.png"))   # Save current plot as PNG in plots directory
     plt.close()                                           # Close current figure to free memory
@@ -973,40 +973,56 @@ def exp9_population_size(seeds):
 # MAIN
 """
  uncomment the exp you will run from EXP_MAP and EXP_DESCRIPTIONS, then run the script 
- momkn trun kolo ma3 ba3d bas hay3od ktir gdn f momkn 3 by 3 mslan a7san 
- law 3mlto run w 3ayzen t3mlo tany lnafs el exp mslan ems7o el imgs mn elfolder la2no msh by overwrite 
- hy3od yrun 3la elfady w msh haynzl haga  
+ law 3mlto run w 3ayzen t3mlo tany lnafs el exp mslan ems7o el imgs mn elfolder la2no msh by overwrite  hy3od yrun 3la elfady w msh haynzl haga  
  """
 EXP_MAP = {
+    # Mirna
     # 1: exp1_ga_components,
     # 2: exp2_pso_update_rules,
     # 3: exp2_pso_topology,
+
+    #Ahmed
     # 4: exp2_pso_balance,
     # 5: exp2_pso_inertia,
     # 6: exp2_pso_swarm_size,
+
+    # Lara 
     # 7: exp2_pso_bonus,
-    # 8: exp3_scenarios, # btakhod wa2t ktir mooootttttt 
-    # 9: exp4_init_strategies, # btakhod wa2t ktir mooootttttt 
-    # # 10: exp5_f1_modes,
-    # # 11: exp6_algorithm_comparison, # btakhod wa2t ktir mooootttttt 
-    # # 12: exp7_diversity,
-    # 13: exp8_hybrid_islands, # btakhod wa2t ktir mooootttttt 
-    # 14: exp9_population_size, # btakhod wa2t ktir mooootttttt 
+    # 8: exp3_scenarios, 
+    # 9: exp4_init_strategies,
+
+    # Mariam
+    # 10: exp5_f1_modes,
+    # 11: exp6_algorithm_comparison, 
+    # 12: exp7_diversity,
+
+    # Nour 
+    # 13: exp8_hybrid_islands, 
+    # 14: exp9_population_size, 
  }
  
 EXP_DESCRIPTIONS = {
+    # Mirna
     # 1: "GA Component Study",
     # 2: "PSO Update Rules (Canonical vs Bare-bones)",
     # 3: "PSO Topology (Global vs Ring)",
+
+    #Ahmed
     # 4: "PSO Cognitive vs Social Balance (c1/c2)",
     # 5: "PSO Inertia Schedule (Linear vs Random)",
     # 6: "PSO Swarm Size Study",
+
+    # Lara 
     # 7: "PSO Bonus Combinations",
     # 8: "Scenario Comparison (6 disaster scenarios)",
     # 9: "Initialization Strategies (GA/PSO/Hybrid)",
+
+    # Mariam
     # 10: "f1 Mode Sensitivity (asymmetric, absolute, squared, relative)",
     # 11: "Algorithm Comparison (GA vs PSO vs Hybrid)",
     # 12: "Diversity Preservation (Fitness Sharing)",
+
+    # Nour 
     # 13: "Hybrid Island Dynamics (Epoch interval & Island size)",
     # 14: "Population Size Study (GA, PSO, Hybrid)",
 }
