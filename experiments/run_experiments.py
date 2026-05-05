@@ -1,7 +1,13 @@
 """
 Run one  :  python experiments/run_experiments.py --exp 1
 Run all  :  python experiments/run_experiments.py
-Seeds    :  python experiments/run_experiments.py --seeds 30
+
+Seeds    :  python experiments/run_experiments.py --seeds 30  estakhdmo da ya gma3a fy elterminal 
+            just copy paste it into the terminal bas boso ta7t fy akhr elcode fy elmain w 23mlo uncomment 
+            le elexperiments elly hat3mlolha run bas 
+
+
+
 Verbose  :  python experiments/run_experiments.py --exp 7 --seeds 10 
 """
 
@@ -10,7 +16,8 @@ import os
 import argparse
 import numpy as np
 import matplotlib
- 
+import time
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
@@ -22,10 +29,10 @@ sys.path.insert(0, os.path.join(ROOT, "problem"))
 sys.path.insert(0, os.path.join(ROOT, "algorithms"))
  
 from problem.scenarioM import get_scenario
-from problem.FitnessFinal import compute_fitness
 from algorithms.ga import DisasterReliefGA
 from algorithms.pso import PSO, LinearInertia, RandomInertia, build_all_configs
 from algorithms.hybridDIM_SP import DIMSPHybrid
+from problem.FitnessFinal import compute_fitness, compute_norm_constants
  
 # CONFIG
  
@@ -71,7 +78,7 @@ def curve_mean(results):
     arr = np.array([h[:L] for h in hists])
     return arr.mean(axis=0)
  
-def create_table(data, title, filename, headers):
+def create_table(data, title, filename, headers ,  highlight_min_cols=None):
     fig_width  = max(len(headers) * 1.5, 8)
     fig_height = max(len(data) * 0.5 + 1.5, 3)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
@@ -88,9 +95,40 @@ def create_table(data, title, filename, headers):
     for i in range(len(headers)):
         table[(0, i)].set_facecolor(COLORS[0])
         table[(0, i)].set_text_props(weight='bold', color='white')
+                                     
+    if highlight_min_cols:
+        for col_idx in highlight_min_cols:
+            col_vals = []
+            for row_idx in range(len(data)):
+                try:
+                    col_vals.append(float(data[row_idx][col_idx]))
+                except:
+                    col_vals.append(float('inf'))
+            min_val = min(col_vals)
+            for row_idx, val in enumerate(col_vals):
+                    if val == min_val:
+                        table[(row_idx + 1 , col_idx)].set_facecolor('#90EE90')
+
+
     plt.title(title, pad=20, wrap=True)
     plt.tight_layout()
     _save(filename)
+
+
+def extra_stats(res, scenario):
+    norm = compute_norm_constants(scenario)
+    f1s = [r["f1"] for r in res]
+    f2s = [r["f2"] for r in res]
+    f3s = [r["f3"] for r in res]
+    iters = [len(r["history"]) for r in res if r.get("history")]
+    mean_f1 = np.mean(f1s)
+    mean_f2 = np.mean(f2s)
+    mean_f3 = np.mean(f3s)
+    dist_eff = (1 - mean_f1 / norm["f1_max"]) * 100
+    res_utils = (1 - mean_f2 / norm["f2_max"]) * 100
+    avg_iter = np.mean(iters) if iters else 0
+    avg_time = np.mean([r["time"] for r in res])
+    return mean_f1 ,dist_eff , mean_f2 , res_utils , mean_f3 , avg_iter , avg_time
  
 # GENERIC RUNNER
  
@@ -105,13 +143,14 @@ def make_ga(scenario=None, config="baseline", init="Demand_Proportional", f1_mod
     def _fn(seed): # Create GA instance with chosen configuration
         ga = DisasterReliefGA(scenario_data=sc, config_type=config, init_strategy=init, 
                               seed=seed, f1_mode=f1_mode, **kw)
-        sol, score, hist, _ = ga.run() # Run GA optimization
-        return {"score": score, "history": hist, "sol": sol}
+        start = time.time()
+        sol, score, hist, _, details = ga.run()
+        elapsed = time.time() - start
+        return {"score": score, "history": hist, "sol": sol, "f1": details["f1"], "f2": details["f2"], "f3": details["f3"], "time": elapsed}
     return _fn # Return wrapper function so it can be called later with different seeds
  
- 
 def make_pso(
-    scenario=None,num_particles=30,max_iterations=200,c1=1.5,c2=1.5,
+    scenario=None,num_particles=30,max_iterations=199,c1=1.5,c2=1.5,
     init="demand_proportional",inertia=None,ring=False,neighbors=4,bare=False,**kw):
  
     sc = scenario or SCENARIO
@@ -130,11 +169,15 @@ def make_pso(
         pso = PSO(
             scenario=sc,seed=seed,num_particles=num_particles,max_iterations=max_iterations,c1=c1,c2=c2,
             initialization_strategy=init,inertia=inertia_obj,ring=ring,neighbors=neighbors,bare=bare,**kw)
- 
+
+        start = time.time()
         score, sol, hist = pso.optimize()
+        elapsed = time.time() - start
  
-        return { "score": score, "history": hist["convergence"], "f1": hist.get("f1_history", []), "f2": hist.get("f2_history", []),
-            "f3": hist.get("f3_history", []),"sol": sol}
+        return { "score": score,"history": hist["convergence"], "f1": hist["f1_history"][-1] if hist.get("f1_history") else 0,
+        "f2": hist["f2_history"][-1] if hist.get("f2_history") else 0, "f3": hist["f3_history"][-1] if hist.get("f3_history") else 0,
+        "sol": sol,"time": elapsed
+    }
  
     return _fn
  
@@ -143,11 +186,17 @@ def make_hybrid(scenario=None, init="Demand_Proportional", epoch_interval=10, is
     def _fn(seed):
         h = DIMSPHybrid(scenario=sc, seed=seed, init_strategy=init, 
                         epoch_interval=epoch_interval, island_size=island_size, **kw)
+        start = time.time()
         sol, score, info = h.run()
+        elapsed = time.time() - start
+        details = info["details"]
         return {"score": score, "history": info.get("hybrid_convergence", []),
-                "island_count": info.get("island_count", []), "sol": sol}
+                "island_count": info.get("island_count", []), "sol": sol,
+                "f1": details["f1"], "f2": details["f2"], "f3": details["f3"],
+                "time": elapsed}
     return _fn
- 
+
+
 # PLOTTING HELPERS
 def plot_curves(ax, data, title=None): # Plot mean curve
     for i, (label, results) in enumerate(data.items()): # Loop through each algorithm/configuration in the data dictionary
@@ -186,18 +235,23 @@ def exp1_ga_components(seeds):
  
     # Run all GA configurations
     for name, cfg in configs.items():
-        print(f"  Running {name}...")
+        print(f"  Running {name}")
         res = run_algo(make_ga(config=cfg), seeds)
         results[name] = res
         scores = [r["score"] for r in res] # Extract final score from each run
-        rows.append([name, np.mean(scores), np.min(scores), np.max(scores)])
+        mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter , avg_time = extra_stats(res, SCENARIO)
+        rows.append([name, np.mean(scores), np.min(scores), np.max(scores), mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter, avg_time])
  
     # Save summary table
     create_table(
-        [[r[0], f"{r[1]:.4f}", f"{r[2]:.4f}", f"{r[3]:.4f}"] for r in rows], #Format the number as a float with 4 decimal places
+        [[r[0], f"{r[1]:.4f}", f"{r[2]:.4f}", f"{r[3]:.4f}",
+          f"{r[4]:.4f}", f"{r[5]:.2f}%", f"{r[6]:.4f}", f"{r[7]:.2f}%",
+          f"{r[8]:.4f}", f"{r[9]:.1f}" , f"{r[10]:.2f}s"] for r in rows],
         "EXP-1: GA Component Study",
         "exp1_table.png",
-        ["Config", "Mean", "Best", "Worst"]
+        ["Config", "Mean fitness", "Best fitness", "Worst fitness", "f1", "Distribution efficiency%",
+          "f2", "Resource Utilization%", "f3", "Avg Iter" , "Avg Time(s)"],
+        highlight_min_cols=[1, 9]  # Mean fitness and Avg Iter
     )
  
     baseline_name = "Baseline (Tournament+BLX+NonUniform+Elite=2)"
@@ -308,14 +362,20 @@ def run_pso_group(seeds, group_name, group_keywords):
         res = run_algo(make_pso(**kwargs), seeds)
         results[name] = res
         scores = [r["score"] for r in res]
-        rows.append([name, np.mean(scores), np.min(scores), np.max(scores)])
+        mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter , avg_time = extra_stats(res, SCENARIO)
+        rows.append([name, np.mean(scores), np.min(scores), np.max(scores), mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter, avg_time])
  
     create_table(
-        [[r[0], f"{r[1]:.4f}", f"{r[2]:.4f}", f"{r[3]:.4f}"] for r in rows],
+        [[r[0], f"{r[1]:.4f}", f"{r[2]:.4f}", f"{r[3]:.4f}",
+        f"{r[4]:.4f}", f"{r[5]:.2f}%", f"{r[6]:.4f}", f"{r[7]:.2f}%",
+        f"{r[8]:.4f}", f"{r[9]:.1f}", f"{r[10]:.2f}s"] for r in rows],
         group_name,
         f"{group_name}_table.png",
-        ["Config", "Mean", "Best", "Worst"]
+        ["Config", "Mean fitness", "Best fitness", "Worst fitness", "f1", "Distribution efficiency%",
+        "f2", "Resource Utilization%", "f3", "Avg Iter", "Avg Time(s)"],
+        highlight_min_cols=[1, 9]
     )
+    
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
  
     ax1 = axes[0]
@@ -427,14 +487,17 @@ def exp3_scenarios(seeds):
         row = [sc_name]
         for algo in algos_list:
             mean = stats(algos[algo])
-            row += [f"{mean:.4f}"]
+            avg_iter = np.mean([len(r["history"]) for r in algos[algo] if r.get("history")])
+            avg_time = np.mean([r["time"] for r in algos[algo]])
+            row += [f"{mean:.4f}", f"{avg_iter:.1f}", f"{avg_time:.2f}s"]
         rows.append(row)
- 
+
     create_table(
         rows,
         "EXP-3: Scenario Results",
         "exp3_table.png",
-        ["Scenario", "GA Mean", "PSO Mean", "Hyb Mean", ]
+        ["Scenario", "GA Mean", "GA Iter", "GA Time", "PSO Mean", "PSO Iter", "PSO Time", "Hyb Mean", "Hyb Iter", "Hyb Time"],
+        highlight_min_cols=[1, 2, 4, 5, 7, 8]
     )
  
     # CONVERGENCE PLOTS
@@ -478,11 +541,17 @@ def exp4_init_strategies(seeds):
         row = [strat]
         for algo in ["GA", "PSO", "Hybrid"]:
             scores = [r["score"] for r in algos[algo]]
-            row += [f"{np.mean(scores):.4f}"]
+            avg_iter = np.mean([len(r["history"]) for r in algos[algo] if r.get("history")])
+            avg_time = np.mean([r["time"] for r in algos[algo]])
+            row += [f"{np.mean(scores):.4f}", f"{avg_iter:.1f}", f"{avg_time:.2f}s"]
         rows.append(row)
-    
-    create_table(rows, "EXP-4: Initialization Results", "exp4_table.png",
-                 ["Init", "GA Mean", "PSO Mean", "Hyb Mean"])
+
+    create_table(
+        rows,
+        "EXP-4: Initialization Results",
+        "exp4_table.png",
+        ["Init", "GA Mean", "GA Iter", "GA Time", "PSO Mean", "PSO Iter", "PSO Time", "Hyb Mean", "Hyb Iter", "Hyb Time"],
+        highlight_min_cols=[1, 2, 4, 5, 7, 8])
     
     fig, axes = plt.subplots(1, 3, figsize=(17, 4))
     for ax, (strat, algos) in zip(axes, results.items()):
@@ -498,11 +567,21 @@ def exp5_f1_modes(seeds):
     rows = []
     
     for mode in modes:
-        results[mode] = run_algo(make_ga(f1_mode=mode), seeds)
-        scores = [r["score"] for r in results[mode]]
-        rows.append([mode, f"{np.mean(scores):.4f}", f"{np.min(scores):.4f}", f"{np.max(scores):.4f}"])
-    
-    create_table(rows, "EXP-5: f1 Mode Results", "exp5_table.png", ["Mode", "Mean", "Best", "Worst"])
+        res = run_algo(make_ga(f1_mode=mode), seeds)
+        results[mode] = res
+        scores = [r["score"] for r in res]
+        mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter, avg_time = extra_stats(res, SCENARIO)
+        rows.append([mode, np.mean(scores), np.min(scores), np.max(scores),mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter, avg_time])
+ 
+    create_table(
+        [[r[0], f"{r[1]:.4f}", f"{r[2]:.4f}", f"{r[3]:.4f}",
+        f"{r[4]:.4f}", f"{r[5]:.2f}%", f"{r[6]:.4f}", f"{r[7]:.2f}%",
+        f"{r[8]:.4f}", f"{r[9]:.1f}", f"{r[10]:.2f}s"] for r in rows],
+        "EXP-5: f1 Mode Results", "exp5_table.png",
+        ["Config", "Mean fitness", "Best fitness", "Worst fitness", "f1", "Distribution efficiency%",
+        "f2", "Resource Utilization%", "f3", "Avg Iter", "Avg Time(s)"],
+        highlight_min_cols=[1, 9]
+    )
     
     fig, axes = plt.subplots(1, 4, figsize=(18, 4))
     for ax, (mode, res) in zip(axes, results.items()):
@@ -528,18 +607,18 @@ def exp6_algorithm_comparison(seeds):
     rows = []
     for name, res in results.items():
         scores = [r["score"] for r in res]
-        rows.append([
-            name,
-            f"{np.mean(scores):.4f}",
-            f"{np.min(scores):.4f}",
-            f"{np.max(scores):.4f}",
-        ])
+        mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter , avg_time = extra_stats(res, SCENARIO)
+        rows.append([name, np.mean(scores), np.min(scores), np.max(scores), mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter, avg_time])
  
     create_table(
-        rows,
+        [[r[0], f"{r[1]:.4f}", f"{r[2]:.4f}", f"{r[3]:.4f}",
+        f"{r[4]:.4f}", f"{r[5]:.2f}%", f"{r[6]:.4f}", f"{r[7]:.2f}%",
+        f"{r[8]:.4f}", f"{r[9]:.1f}", f"{r[10]:.2f}s"] for r in rows],
         "EXP-6: Algorithm Comparison",
         "exp6_table.png",
-        ["Algorithm", "Mean", "Best", "Worst"]
+        ["Algorithm", "Mean fitness", "Best fitness", "Worst fitness", "f1", "Distribution efficiency%",
+        "f2", "Resource Utilization%", "f3", "Avg Iter", "Avg Time(s)"],
+        highlight_min_cols=[1, 9]
     )
  
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
@@ -603,18 +682,18 @@ def exp7_diversity(seeds):
     rows = []
     for name, res in results.items():
         scores = [r["score"] for r in res]
-        rows.append([
-            name,
-            f"{np.mean(scores):.4f}",
-            f"{np.min(scores):.4f}",
-            f"{np.max(scores):.4f}"
-        ])
+        mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter , avg_time = extra_stats(res, SCENARIO)
+        rows.append([name, np.mean(scores), np.min(scores), np.max(scores), mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter, avg_time])
  
     create_table(
-        rows,
+        [[r[0], f"{r[1]:.4f}", f"{r[2]:.4f}", f"{r[3]:.4f}",
+        f"{r[4]:.4f}", f"{r[5]:.2f}%", f"{r[6]:.4f}", f"{r[7]:.2f}%",
+        f"{r[8]:.4f}", f"{r[9]:.1f}", f"{r[10]:.2f}s"] for r in rows],
         "EXP-7: Diversity Results",
         "exp7_table.png",
-        ["Method", "Mean", "Best", "Worst"]
+        ["Method", "Mean fitness", "Best fitness", "Worst fitness", "f1", "Distribution efficiency%",
+        "f2", "Resource Utilization%", "f3", "Avg Iter", "Avg Time(s)"],
+        highlight_min_cols=[1, 9]
     )
  
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
@@ -683,35 +762,35 @@ def exp8_hybrid_islands(seeds):
     epoch_rows = []
     for k, res in epoch_res.items():
         scores = [r["score"] for r in res]
-        epoch_rows.append([
-            k,
-            f"{np.mean(scores):.4f}",
-            f"{np.min(scores):.4f}",
-            f"{np.max(scores):.4f}"
-        ])
+        mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter , avg_time = extra_stats(res, SCENARIO)
+        epoch_rows.append([k, np.mean(scores), np.min(scores), np.max(scores), mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter, avg_time])
  
     create_table(
-        epoch_rows,
-        "Epoch Variation",
+        [[r[0], f"{r[1]:.4f}", f"{r[2]:.4f}", f"{r[3]:.4f}",
+        f"{r[4]:.4f}", f"{r[5]:.2f}%", f"{r[6]:.4f}", f"{r[7]:.2f}%",
+        f"{r[8]:.4f}", f"{r[9]:.1f}", f"{r[10]:.2f}s"] for r in epoch_rows],
+        "EXP-8a: Epoch Variation",
         "exp8a_table.png",
-        ["Config", "Mean", "Best", "Worst"]
+        ["Config", "Mean fitness", "Best fitness", "Worst fitness", "f1", "Distribution efficiency%",
+        "f2", "Resource Utilization%", "f3", "Avg Iter", "Avg Time(s)"],
+        highlight_min_cols=[1, 9]
     )
  
     size_rows = []
     for k, res in size_res.items():
         scores = [r["score"] for r in res]
-        size_rows.append([
-            k,
-            f"{np.mean(scores):.4f}",
-            f"{np.min(scores):.4f}",
-            f"{np.max(scores):.4f}"
-        ])
+        mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter , avg_time = extra_stats(res, SCENARIO)
+        size_rows.append([k, np.mean(scores), np.min(scores), np.max(scores), mean_f1, dist_eff, mean_f2, res_util, mean_f3, avg_iter, avg_time])
  
     create_table(
-        size_rows,
-        "Size Variation",
-        "exp8b_table.png",
-        ["Config", "Mean", "Best", "Worst"]
+        [[r[0], f"{r[1]:.4f}", f"{r[2]:.4f}", f"{r[3]:.4f}",
+        f"{r[4]:.4f}", f"{r[5]:.2f}%", f"{r[6]:.4f}", f"{r[7]:.2f}%",
+        f"{r[8]:.4f}", f"{r[9]:.1f}", f"{r[10]:.2f}s"] for r in size_rows],
+        "EXP-8a: Epoch Variation",
+        "exp8a_table.png",
+        ["Config", "Mean fitness", "Best fitness", "Worst fitness", "f1", "Distribution efficiency%",
+        "f2", "Resource Utilization%", "f3", "Avg Iter", "Avg Time(s)"],
+        highlight_min_cols=[1, 9]
     )
  
     #EPOCH Interval
@@ -819,21 +898,23 @@ def exp9_population_size(seeds):
             "Hybrid": run_algo(make_hybrid(island_size=size), seeds)
         }
  
-    #  TABLE 
+        #  TABLE 
     rows = []
     for size in sizes:
         row = [str(size)]
         for algo in ["GA", "PSO", "Hybrid"]:
             scores = [r["score"] for r in results[size][algo]]
-            row += [f"{np.mean(scores):.4f}"]
- 
+            avg_iter = np.mean([len(r["history"]) for r in results[size][algo] if r.get("history")])
+            avg_time = np.mean([r["time"] for r in results[size][algo]])
+            row += [f"{np.mean(scores):.4f}", f"{avg_iter:.1f}", f"{avg_time:.2f}s"]
         rows.append(row)
- 
+
     create_table(
         rows,
         "Population Size Study",
         "exp9_table.png",
-        ["Size", "GA Mean", "PSO Mean",  "Hyb Mean",]
+        ["Size", "GA Mean", "GA Iter", "GA Time", "PSO Mean", "PSO Iter", "PSO Time", "Hyb Mean", "Hyb Iter", "Hyb Time"],
+        highlight_min_cols=[1, 2, 4 , 5, 7 , 8]
     )
  
     algos = ["GA", "PSO", "Hybrid"]
@@ -891,39 +972,44 @@ def exp9_population_size(seeds):
         _save(f"exp9_population_size_{algo.lower()}")
  
 # MAIN
- 
+"""
+ uncomment the exp you will run from EXP_MAP and EXP_DESCRIPTIONS, then run the script 
+ momkn trun kolo ma3 ba3d bas hay3od ktir gdn f momkn 3 by 3 mslan a7san 
+ law 3mlto run w 3ayzen t3mlo tany lnafs el exp mslan ems7o el imgs mn elfolder la2no msh by overwrite 
+ hy3od yrun 3la elfady w msh haynzl haga  
+ """
 EXP_MAP = {
-    1: exp1_ga_components,
-    2: exp2_pso_update_rules,
-    3: exp2_pso_topology,
-    4: exp2_pso_balance,
-    5: exp2_pso_inertia,
-    6: exp2_pso_swarm_size,
-    7: exp2_pso_bonus,
-    8: exp3_scenarios,
-    9: exp4_init_strategies,
-    10: exp5_f1_modes,
-    11: exp6_algorithm_comparison,
-    12: exp7_diversity,
-    13: exp8_hybrid_islands,
-    14: exp9_population_size,
-}
+    # 1: exp1_ga_components,
+    # 2: exp2_pso_update_rules,
+    # 3: exp2_pso_topology,
+    # 4: exp2_pso_balance,
+    # 5: exp2_pso_inertia,
+    # 6: exp2_pso_swarm_size,
+    # 7: exp2_pso_bonus,
+    # 8: exp3_scenarios, # btakhod wa2t ktir mooootttttt 
+    # 9: exp4_init_strategies, # btakhod wa2t ktir mooootttttt 
+    # # 10: exp5_f1_modes,
+    # # 11: exp6_algorithm_comparison, # btakhod wa2t ktir mooootttttt 
+    # # 12: exp7_diversity,
+    # 13: exp8_hybrid_islands, # btakhod wa2t ktir mooootttttt 
+    # 14: exp9_population_size, # btakhod wa2t ktir mooootttttt 
+ }
  
 EXP_DESCRIPTIONS = {
-    1: "GA Component Study",
-    2: "PSO Update Rules (Canonical vs Bare-bones)",
-    3: "PSO Topology (Global vs Ring)",
-    4: "PSO Cognitive vs Social Balance (c1/c2)",
-    5: "PSO Inertia Schedule (Linear vs Random)",
-    6: "PSO Swarm Size Study",
-    7: "PSO Bonus Combinations",
-    8: "Scenario Comparison (6 disaster scenarios)",
-    9: "Initialization Strategies (GA/PSO/Hybrid)",
-    10: "f1 Mode Sensitivity (asymmetric, absolute, squared, relative)",
-    11: "Algorithm Comparison (GA vs PSO vs Hybrid)",
-    12: "Diversity Preservation (Fitness Sharing)",
-    13: "Hybrid Island Dynamics (Epoch interval & Island size)",
-    14: "Population Size Study (GA, PSO, Hybrid)",
+    # 1: "GA Component Study",
+    # 2: "PSO Update Rules (Canonical vs Bare-bones)",
+    # 3: "PSO Topology (Global vs Ring)",
+    # 4: "PSO Cognitive vs Social Balance (c1/c2)",
+    # 5: "PSO Inertia Schedule (Linear vs Random)",
+    # 6: "PSO Swarm Size Study",
+    # 7: "PSO Bonus Combinations",
+    # 8: "Scenario Comparison (6 disaster scenarios)",
+    # 9: "Initialization Strategies (GA/PSO/Hybrid)",
+    # 10: "f1 Mode Sensitivity (asymmetric, absolute, squared, relative)",
+    # 11: "Algorithm Comparison (GA vs PSO vs Hybrid)",
+    # 12: "Diversity Preservation (Fitness Sharing)",
+    # 13: "Hybrid Island Dynamics (Epoch interval & Island size)",
+    # 14: "Population Size Study (GA, PSO, Hybrid)",
 }
  
  
