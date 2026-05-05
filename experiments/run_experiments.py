@@ -7,7 +7,6 @@ Seeds    :  python experiments/run_experiments.py --seeds 30  estakhdmo da ya gm
             le elexperiments elly hat3mlolha run bas 
 
 
-
 Verbose  :  python experiments/run_experiments.py --exp 7 --seeds 10 
 """
 
