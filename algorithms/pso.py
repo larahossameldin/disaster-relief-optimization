@@ -44,8 +44,8 @@ class PSO:
                 seed=None, 
                 w1=W1, w2=W2, w3=W3,beta=BETA, f1_mode="asymmetric",
                 initialization_strategy='urgency_biased',
-                stagnation_threshold=30, stagnation_tolerance=1e-6,
-                near_zero_tolerance=1e-3):
+                stagnation_threshold=30, stagnation_tolerance=1e-1,
+                near_zero_tolerance=1e-2):
         
         self.scenario=scenario
         self.num_particles=num_particles
@@ -470,7 +470,7 @@ if __name__ == "__main__":
         print(f"  f3 (delivery): {details['f3']:.4f}")
         print(f"  penalty      : {details['penalty']:.4f}")
         print(f"  feasible     : {details['penalty'] < 1e-6}")
-        print(f"  convergence  : iter {np.argmin(history)+1}/{len(history)}")
+        print(f"  convergence  : iter {len( history['convergence'])} (stagnation or swarm collapse)")
 
         results.append({
             "config"    : label,
@@ -480,7 +480,7 @@ if __name__ == "__main__":
             "f3"        : round(details["f3"], 4),
             "penalty"   : round(details["penalty"], 4),
             "feasible"  : details["penalty"] < 1e-6,
-            "converge"  : int(np.argmin(history) + 1),
+            "converge"  : int(len(history['convergence'])),
         })
 
     # ── Summary table ────────────────────────────────────────────────────────
