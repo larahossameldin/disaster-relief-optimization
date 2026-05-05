@@ -104,7 +104,7 @@ def spectral_cluster(population, fitnesses, max_k, sigma=SIGMA,
             best_ind = population[int(np.argmin(fitnesses))]
             while len(members) < min_size:
                 noise  = np.random.normal(0, 0.3, size=best_ind.shape)
-                padded = repair(best_ind + noise, scenario).flatten(order='F')
+                padded = repair(best_ind + noise, scenario)
                 members = np.vstack([members, padded[None, :]])
         islands.append(members)
     return islands if islands else [population]
@@ -386,14 +386,13 @@ class DIMSPHybrid:#    DIMPS: Dynamic Island Model with Spectral Clustering. Per
                 self.best_score    = isl.best_score
                 self.best_solution = isl.best_solution.copy()
 
-    def run(self):#       Execute the hybrid algorithm.  Returns: (best_solution, best_fitness, info_dict)
+    def run(self):
         n_epochs        = self.total_generations // self.epoch_interval
         steps_per_epoch = self.epoch_interval
         for epoch in range(n_epochs):
-            if epoch > 0:                               # recluster after first epoch
+            if epoch > 0:
                 self._run_epoch(self._current_gen)
 
-            # Evolve each island for one epoch
             for isl in self.islands:
                 isl.evolve(n_steps=steps_per_epoch)
 
@@ -403,8 +402,9 @@ class DIMSPHybrid:#    DIMPS: Dynamic Island Model with Spectral Clustering. Per
             self.island_count_hist.append(len(self.islands))
 
         best_solution = self.best_solution.copy()
-        best_score, _ = compute_fitness(best_solution, self.scenario)
+        best_score, details = compute_fitness(best_solution, self.scenario)
         return best_solution, best_score, {
             "hybrid_convergence": self.convergence,
             "island_count":       self.island_count_hist,
+            "details":           details  
         }

@@ -2,13 +2,15 @@
 HOW TO RUN (from the project ROOT folder):
     python -m streamlit run ui/app.py
 """
-
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-
+import sys  
+import os  
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'problem')))
 USE_MOCK = False
 
 if not USE_MOCK:
@@ -16,11 +18,6 @@ if not USE_MOCK:
     from algorithms.pso import PSO
     from algorithms.ga import DisasterReliefGA
     from algorithms.hybridDIM_SP import DIMSPHybrid
-
-
-# =============================================================================
-# SECTION 1 — SCENARIO DATA
-# =============================================================================
 
 SCENARIO_OPTIONS = [
     "Baseline",
@@ -829,22 +826,35 @@ elif compare_clicked:
     )
 
     # Default parameters for each algorithm — sensible, fast defaults
+    # Default parameters for each algorithm — sensible, fast defaults
     default_params = {
-        "PSO": dict(
-            num_particles=30, max_iterations=200,
-            seed=seed, bare=False, ring=False, c1=1.5, c2=1.5,
-            initialization_strategy="urgency_biased",
-        ),
-        "GA": dict(
-            max_generations=150, population_size=50,
-            config_type="baseline", init_strategy="Demand_Proportional",
-            seed=seed, mutation_rate=None,
-        ),
-        "Hybrid (DIM-SP)": dict(
-            total_generations=100, island_size=50,
-            epoch_interval=20, init_strategy="Random", seed=seed,
-        ),
-    }
+    "PSO": dict(
+        num_particles=50,
+        max_iterations=100,
+        ring=True,
+        neighbors=4,
+        bare=False,                      
+        c1=1.5,
+        c2=1.5,
+        initialization_strategy="random",
+        seed=seed,
+    ),
+    "GA": dict(
+        max_generations=100,
+        population_size=50,
+        config_type="config1",           
+        init_strategy="Random",          
+        seed=seed,
+        mutation_rate=None,              
+    ),
+    "Hybrid (DIM-SP)": dict(
+        total_generations=100,
+        island_size=50,
+        epoch_interval=20,
+        init_strategy="Random",
+        seed=seed,
+    ),
+}
 
     comp_results = {}
     progress_bar = st.progress(0, text="Starting comparison...")
