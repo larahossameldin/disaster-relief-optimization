@@ -332,6 +332,9 @@ def build_all_configs():
     add("BareBones-Ring-k4",
         bare=True, bare_prob=0.5, ring=True, neighbors=4, c1=1.5, c2=1.5,
         num_particles=30)
+    add("BareBones-Ring-k2",
+        bare=True, bare_prob=0.5, ring=True, neighbors=2, c1=1.5, c2=1.5,
+        num_particles=30)
 
 
     # GROUP 3 — COGNITIVE vs SOCIAL BALANCE  (c1 / c2)

@@ -201,12 +201,11 @@ def compute_fitness(solution, scenario, f1_mode=F1_MODE, beta=BETA,
     else:
         X = sol.copy()
         
-    # --- residual penalty (X is 2D here, so compute_penalty works) ----------
-    penalty  = compute_penalty(X, scenario)              
+    # --- residual penalty (X is 2D here, so compute_penalty works) ----------              
     
     # --- repair before evaluating -------------------------------------------
     X = repair(X, scenario)                      # X is always 2D after this
-
+    penalty  = compute_penalty(X, scenario)
     demand  = scenario["demand"]
     urgency = scenario["urgency"]
     access  = scenario["access"]
