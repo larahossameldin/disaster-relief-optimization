@@ -976,29 +976,29 @@ def exp9_population_size(seeds):
  law 3mlto run w 3ayzen t3mlo tany lnafs el exp mslan ems7o el imgs mn elfolder la2no msh by overwrite  hy3od yrun 3la elfady w msh haynzl haga  
  """
 EXP_MAP = {
-    # Mirna
-    # 1: exp1_ga_components,
-    # 2: exp2_pso_update_rules,
-    # 3: exp2_pso_topology,
+#      Mirna
+#     1: exp1_ga_components,
+#     2: exp2_pso_update_rules,
+#     3: exp2_pso_topology,
 
-    #Ahmed
-    # 4: exp2_pso_balance,
-    # 5: exp2_pso_inertia,
-    # 6: exp2_pso_swarm_size,
+#     Ahmed
+    4: exp2_pso_balance,
+    5: exp2_pso_inertia,
+    6: exp2_pso_swarm_size,
 
-    # Lara 
-    # 7: exp2_pso_bonus,
-    # 8: exp3_scenarios, 
-    # 9: exp4_init_strategies,
+#     Lara 
+#     7: exp2_pso_bonus,
+#     8: exp3_scenarios, 
+#     9: exp4_init_strategies,
 
-    # Mariam
+#     Mariam
     # 10: exp5_f1_modes,
     # 11: exp6_algorithm_comparison, 
     # 12: exp7_diversity,
 
-    # Nour 
-    # 13: exp8_hybrid_islands, 
-    # 14: exp9_population_size, 
+#     Nour 
+#     13: exp8_hybrid_islands, 
+#     14: exp9_population_size, 
  }
  
 EXP_DESCRIPTIONS = {
@@ -1008,9 +1008,9 @@ EXP_DESCRIPTIONS = {
     # 3: "PSO Topology (Global vs Ring)",
 
     #Ahmed
-    # 4: "PSO Cognitive vs Social Balance (c1/c2)",
-    # 5: "PSO Inertia Schedule (Linear vs Random)",
-    # 6: "PSO Swarm Size Study",
+    4: "PSO Cognitive vs Social Balance (c1/c2)",
+    5: "PSO Inertia Schedule (Linear vs Random)",
+    6: "PSO Swarm Size Study",
 
     # Lara 
     # 7: "PSO Bonus Combinations",
