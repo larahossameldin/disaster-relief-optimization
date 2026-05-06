@@ -48,7 +48,7 @@ plt.rcParams.update({                        # Update global matplotlib plotting
     "axes.facecolor": "white",               # Set axes background color
     "axes.edgecolor": "black",               # Set border color of axes
     "axes.grid": True,                       # Enable grid by default
-    "grid.color": "#cccccc",                 # Grid line color
+    "grid.color": "#cccccc",               # Grid line color
     "grid.linewidth": 0.6,                   # Grid line thickness
     "lines.linewidth": 1.8,                  # Default line thickness for plots
     "font.size": 9,                          # Default font size
@@ -402,14 +402,16 @@ def run_pso_group(seeds, group_name, group_keywords):
         L = min(len(h) for h in hists)
         arr = np.array([h[:L] for h in hists])
         return arr.mean(axis=0)
- 
-    for i in range(len(names)):
-        for j in range(i + 1, len(names)):
-            a = safe_curve(results[names[i]])
-            b = safe_curve(results[names[j]])
-            L = min(len(a), len(b))     
-            diff = np.max(np.abs(a[:L] - b[:L]))
-            print(names[i], "vs", names[j], "max diff:", diff)
+    
+
+ ## just debugging
+    # for i in range(len(names)):
+    #     for j in range(i + 1, len(names)):
+    #         a = safe_curve(results[names[i]])
+    #         b = safe_curve(results[names[j]])
+    #         L = min(len(a), len(b))     
+    #         diff = np.max(np.abs(a[:L] - b[:L]))
+    #         print(names[i], "vs", names[j], "max diff:", diff)
  
     ax2 = axes[1]
     labels = list(results.keys())
@@ -444,7 +446,7 @@ def exp2_pso_update_rules(seeds):
     run_pso_group(seeds, "EXP-2a_UpdateRules",["Canonical-Global", "BareBones-p0.5-Global", "BareBones-p0.9-Global"])
  
 def exp2_pso_topology(seeds):
-    run_pso_group(seeds, "EXP-2b_Topology", ["Canonical-Ring-k2", "Canonical-Ring-k4", "BareBones-Ring-k2" , "BareBones-Ring-k4" ])
+    run_pso_group(seeds, "EXP-2b_Topology", ["Ring-k2", "Ring-k4", "global-k4", "global-k2" ])
  
 def exp2_pso_balance(seeds):
     run_pso_group(seeds, "EXP-2c_Balance", ["Balanced-c1.5-c1.5", "Cognitive-c2.5-c0.5", "Social-c0.5-c2.5", "Equal-c1.49-c1.49"])
@@ -533,6 +535,7 @@ def exp4_init_strategies(seeds):
             "GA": run_algo(make_ga(init=ga_s), seeds),
             "PSO": run_algo(make_pso(init=pso_s), seeds),
             "Hybrid": run_algo(make_hybrid(init=ga_s), seeds) # Run Hybrid using GA-style initialization
+            # naming inconsistency 
         }
     
     rows = []
@@ -785,8 +788,8 @@ def exp8_hybrid_islands(seeds):
         [[r[0], f"{r[1]:.4f}", f"{r[2]:.4f}", f"{r[3]:.4f}",
         f"{r[4]:.4f}", f"{r[5]:.2f}%", f"{r[6]:.4f}", f"{r[7]:.2f}%",
         f"{r[8]:.4f}", f"{r[9]:.1f}", f"{r[10]:.2f}s"] for r in size_rows],
-        "EXP-8a: Epoch Variation",
-        "exp8a_table.png",
+        "EXP-8b: Size Variation",
+        "exp8b_table.png",
         ["Config", "Mean fitness", "Best fitness", "Worst fitness", "f1", "Distribution efficiency%",
         "f2", "Resource Utilization%", "f3", "Avg Iter", "Avg Time(s)"],
         highlight_min_cols=[1, 9]
@@ -974,58 +977,40 @@ def exp9_population_size(seeds):
 """
  uncomment the exp you will run from EXP_MAP and EXP_DESCRIPTIONS, then run the script 
  law 3mlto run w 3ayzen t3mlo tany lnafs el exp mslan ems7o el imgs mn elfolder la2no msh by overwrite  hy3od yrun 3la elfady w msh haynzl haga  
- """
+"""
 EXP_MAP = {
-    # Mirna
     1: exp1_ga_components,
     2: exp2_pso_update_rules,
     3: exp2_pso_topology,
-
-    #Ahmed
     4: exp2_pso_balance,
     5: exp2_pso_inertia,
     6: exp2_pso_swarm_size,
-
-    #Lara 
     7: exp2_pso_bonus,
     8: exp3_scenarios, 
     9: exp4_init_strategies,
-
-    #Mariam
     10: exp5_f1_modes,
     11: exp6_algorithm_comparison, 
     12: exp7_diversity,
-
-    #Nour 
     13: exp8_hybrid_islands, 
     14: exp9_population_size, 
  }
  
 EXP_DESCRIPTIONS = {
-    # Mirna
     1: "GA Component Study",
     2: "PSO Update Rules (Canonical vs Bare-bones)",
     3: "PSO Topology (Global vs Ring)",
-
-    #Ahmed
     4: "PSO Cognitive vs Social Balance (c1/c2)",
     5: "PSO Inertia Schedule (Linear vs Random)",
     6: "PSO Swarm Size Study",
-
-    #Lara
     7: "PSO Bonus Combinations",
     8: "Scenario Comparison (6 disaster scenarios)",
     9: "Initialization Strategies (GA/PSO/Hybrid)",
-
-    #Mariam
     10: "f1 Mode Sensitivity (asymmetric, absolute, squared, relative)",
     11: "Algorithm Comparison (GA vs PSO vs Hybrid)",
     12: "Diversity Preservation (Fitness Sharing)",
-
-    #Nour  
     13: "Hybrid Island Dynamics (Epoch interval & Island size)",
     14: "Population Size Study (GA, PSO, Hybrid)",
-}
+ }
  
  
 if __name__ == "__main__":
