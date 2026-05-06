@@ -84,9 +84,7 @@ class PSO:
         self.f3_history=[] 
         #el histories f1,f2,f3 are useful for PLOTTING the convergence of the algorithm,
         #and for analyzing the trade-offs between the objectives in a multi-objective optimization problem
-        #they maybe useful for visualization of the optimization process, 
-        # and for understanding how the algorithm is progressing towards optimal solutions over time?simulation?
-        #maarfsh im just thinking
+        
         
         #INITIALIZE--------------------------------------------------------------
     def _initialize(self):
@@ -166,8 +164,8 @@ class PSO:
             _, nbest_x= self._neighborhood_best(i) #get neighborhood best position for particle i
             # r1 and r2 introduce stochasticity in cognitive and social learning
             # ensuring diverse particle movement and preventing premature convergence
-            r1= self.rng.random(self.dim)   #cognitive randomness (for c1)
-            r2= self.rng.random(self.dim)   #social randomness (for c2)
+            r1= self.rng.uniform(0, 1, self.dim)   #cognitive randomness (for c1)
+            r2= self.rng.uniform(0, 1, self.dim)   #social randomness (for c2)
             
             #velocity update: 3 terms - inertia, cognitive, social
             cognitive= self.c1 *r1* (self.pbest_x[i] - self.pos[i]) #moving towards personal best
@@ -187,7 +185,7 @@ class PSO:
             _, nbest_x= self._neighborhood_best(i) #get neighborhood best position for particle i
             
             for j in range(self.dim):
-                if self.rng.random() < self.bare_prob:
+                if self.rng.uniform(0, 1) < self.bare_prob:
                     #exploration : random value between personal best and neighborhood best
                     mu = 0.5 * (nbest_x[j] + self.pbest_x[i,j]) #i, j for the jth dimension of the ith particle
                     sigma = abs(nbest_x[j] - self.pbest_x[i,j]) #spread based on distance between personal best and neighborhood best
@@ -447,52 +445,52 @@ def build_all_configs():
 
     return configs
 
-if __name__ == "__main__":
-    import pandas as pd
+# if __name__ == "__main__":
+#     import pandas as pd
 
-    DEFAULT_SCENARIO = get_scenario()
-    configs = build_all_configs()
-    results = []
+#     DEFAULT_SCENARIO = get_scenario()
+#     configs = build_all_configs()
+#     results = []
 
-    for label, kwargs in configs:
-        # use the scenario embedded in kwargs, or fall back to default
-        scenario = kwargs.pop("scenario", DEFAULT_SCENARIO)
+#     for label, kwargs in configs:
+#         # use the scenario embedded in kwargs, or fall back to default
+#         scenario = kwargs.pop("scenario", DEFAULT_SCENARIO)
 
-        print(f"\n{'='*55}")
-        print(f"  {label}")
-        print(f"{'='*55}")
+#         print(f"\n{'='*55}") 
+#         print(f"  {label}")
+#         print(f"{'='*55}")
 
-        pso = PSO(scenario=scenario, **kwargs)
-        best_fitness, best_solution, history = pso.optimize()
+#         pso = PSO(scenario=scenario, **kwargs)
+#         best_fitness, best_solution, history = pso.optimize()
 
-        _, details = compute_fitness(best_solution, scenario)
+#         _, details = compute_fitness(best_solution, scenario)
 
-        print(f"  Best fitness : {best_fitness:.4f}")
-        print(f"  f1 (suffer)  : {details['f1']:.4f}")
-        print(f"  f2 (waste)   : {details['f2']:.4f}")
-        print(f"  f3 (delivery): {details['f3']:.4f}")
-        print(f"  penalty      : {details['penalty']:.4f}")
-        print(f"  feasible     : {details['penalty'] < 1e-6}")
-        print(f"  convergence  : iter {len( history['convergence'])} (stagnation or swarm collapse)")
+#         print(f"  Best fitness : {best_fitness:.4f}")
+#         print(f"  f1 (suffer)  : {details['f1']:.4f}")
+#         print(f"  f2 (waste)   : {details['f2']:.4f}")
+#         print(f"  f3 (delivery): {details['f3']:.4f}")
+#         print(f"  penalty      : {details['penalty']:.4f}")
+#         print(f"  feasible     : {details['penalty'] < 1e-6}")
+#         print(f"  convergence  : iter {len( history['convergence'])} (stagnation or swarm collapse)")
 
-        results.append({
-            "config"    : label,
-            "fitness"   : round(best_fitness, 4),
-            "f1"        : round(details["f1"], 4),
-            "f2"        : round(details["f2"], 4),
-            "f3"        : round(details["f3"], 4),
-            "penalty"   : round(details["penalty"], 4),
-            "feasible"  : details["penalty"] < 1e-6,
-            "converge"  : int(len(history['convergence'])),
-        })
+#         results.append({
+#             "config"    : label,
+#             "fitness"   : round(best_fitness, 4),
+#             "f1"        : round(details["f1"], 4),
+#             "f2"        : round(details["f2"], 4),
+#             "f3"        : round(details["f3"], 4),
+#             "penalty"   : round(details["penalty"], 4),
+#             "feasible"  : details["penalty"] < 1e-6,
+#             "converge"  : int(len(history['convergence'])),
+#         })
 
-    # ── Summary table ────────────────────────────────────────────────────────
-    df = pd.DataFrame(results).sort_values("fitness")
-    print(f"\n{'='*55}")
-    print("  RESULTS SUMMARY  (sorted by fitness)")
-    print(f"{'='*55}")
-    print(df.to_string(index=False))
+#     # ── Summary table ────────────────────────────────────────────────────────
+#     df = pd.DataFrame(results).sort_values("fitness")
+#     print(f"\n{'='*55}")
+#     print("  RESULTS SUMMARY  (sorted by fitness)")
+#     print(f"{'='*55}")
+#     print(df.to_string(index=False))
 
-    print(f"\n  Best config  : {df.iloc[0]['config']}")
-    print(f"  Best fitness : {df.iloc[0]['fitness']}")
-    print(f"  All feasible : {df['feasible'].all()}")
+#     print(f"\n  Best config  : {df.iloc[0]['config']}")
+#     print(f"  Best fitness : {df.iloc[0]['fitness']}")
+#     print(f"  All feasible : {df['feasible'].all()}")
