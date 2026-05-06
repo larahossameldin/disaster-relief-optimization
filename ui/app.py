@@ -2,6 +2,11 @@
 HOW TO RUN (from the project ROOT folder):
     python -m streamlit run ui/app.py
 """
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'problem')))
+
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
