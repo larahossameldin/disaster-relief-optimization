@@ -1,18 +1,29 @@
 # disaster-relief-optimization
 ---
 
-## DISCLAIMER: these are just loose guidelines, prone to change as we move through the project
-## After you are done with your task, change the part where your task is written here with a summary of what you actually did
+## DISCLAIMER: the README is not updated, we strongly recommend you check the project documentation here instead:
+https://drive.google.com/drive/folders/1Qi1omTq9SszMGUk6Wu6WtLZA83Gfgpb8?usp=drive_link
 
-----
-## General Notes for Team
 
-- Always pull from main before starting a session: `git pull origin main`
-- Work on your own branch, never directly on main
-- Member 1 should merge first — everyone else depends on their files
-- After Member 1 merges, run `git pull origin main` to get their files before you start coding
-- If you are stuck, ask the team before spending hours on something
----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Member Tasks
 ### Member 1 — Problem Setup, Fitness Function & Constraint Handler
 ## AI420 Project 5: Disaster Relief Resource Allocation
@@ -29,7 +40,7 @@
  
 ---
  
-## Are the Files Correctly Linked? ✅ YES
+## Are the Files Correctly Linked?  YES
  
 The dependency chain is:
  
@@ -441,7 +452,7 @@ pip install numpy pygad
 python experiments/run_experiments.py
 ```
 
-> ⚠️ Run from the **root directory** — not from inside `experiments/`. Otherwise the `problem/` imports will fail.
+> Run from the **root directory** — not from inside `experiments/`. Otherwise the `problem/` imports will fail.
 
 **To run the GA engine directly:**
 

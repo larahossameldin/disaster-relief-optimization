@@ -189,7 +189,7 @@ def run_algorithm(sc, algo, params):
             solution, score, history, final_pop = mock_run_ga(sc, **params)
         else:
             ga = DisasterReliefGA(scenario_data=sc, **params)
-            solution, score, history, final_pop = ga.run()
+            solution, score, history, final_pop, details = ga.run()
 
         matrix = solution.reshape(8, 3, order='F')
         return {
