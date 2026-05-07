@@ -71,10 +71,12 @@ class PSO:
         self.rng=np.random.default_rng(seed)
         
         #Inertia strategy, default is linear inertia
-        if inertia is None or inertia=='random':
+        if inertia=='random':
             self.inertia=RandomInertia(self.rng)
-        else:
+        elif inertia=='linear':
             self.inertia=LinearInertia()
+        else:
+            self.inertia= inertia 
         
         #tracking best solution
         self.gbest_history=[] #history of global best fitness values
@@ -84,9 +86,7 @@ class PSO:
         self.f3_history=[] 
         #el histories f1,f2,f3 are useful for PLOTTING the convergence of the algorithm,
         #and for analyzing the trade-offs between the objectives in a multi-objective optimization problem
-        #they maybe useful for visualization of the optimization process, 
-        # and for understanding how the algorithm is progressing towards optimal solutions over time?simulation?
-        #maarfsh im just thinking
+        
         
         #INITIALIZE--------------------------------------------------------------
     def _initialize(self):
@@ -166,8 +166,8 @@ class PSO:
             _, nbest_x= self._neighborhood_best(i) #get neighborhood best position for particle i
             # r1 and r2 introduce stochasticity in cognitive and social learning
             # ensuring diverse particle movement and preventing premature convergence
-            r1= self.rng.random(self.dim)   #cognitive randomness (for c1)
-            r2= self.rng.random(self.dim)   #social randomness (for c2)
+            r1= self.rng.uniform(0, 1, self.dim)   #cognitive randomness (for c1)
+            r2= self.rng.uniform(0, 1, self.dim)   #social randomness (for c2)
             
             #velocity update: 3 terms - inertia, cognitive, social
             cognitive= self.c1 *r1* (self.pbest_x[i] - self.pos[i]) #moving towards personal best
@@ -187,7 +187,7 @@ class PSO:
             _, nbest_x= self._neighborhood_best(i) #get neighborhood best position for particle i
             
             for j in range(self.dim):
-                if self.rng.random() < self.bare_prob:
+                if self.rng.uniform(0, 1) < self.bare_prob:
                     #exploration : random value between personal best and neighborhood best
                     mu = 0.5 * (nbest_x[j] + self.pbest_x[i,j]) #i, j for the jth dimension of the ith particle
                     sigma = abs(nbest_x[j] - self.pbest_x[i,j]) #spread based on distance between personal best and neighborhood best
@@ -275,7 +275,7 @@ class PSO:
             if self._swarm_radius_near_zero():
                 break 
         #decode solution to matrix 
-        best_solution =decode(self._gbest_x, self.scenario['n_regions'])
+        best_solution =decode(self._gbest_x, self.scenario['n_regions']) #split the vector into n_regions parts, and reshape each part into (n_resources,) to get a (n_regions, n_resources) solution matrix
         #repair best solution to satisfy constraints
         best_solution= repair(best_solution, self.scenario)
             
@@ -355,11 +355,11 @@ def build_all_configs():
     # GROUP 4 — INERTIA SCHEDULE  (linear vs random)
     add("Linear-Inertia",
         bare=False, ring=False, c1=1.5, c2=1.5, num_particles=30,
-        inertia=LinearInertia(w_start=0.9, w_end=0.5))
+        inertia='linear')
 
     add("Random-Inertia",
         bare=False, ring=False, c1=1.5, c2=1.5, num_particles=30,
-        inertia=RandomInertia(np.random.default_rng(7)))
+        inertia='random')
 
 
     # GROUP 5 — INITIALISATION STRATEGY
@@ -403,7 +403,7 @@ def build_all_configs():
 
     add("Social-RandomInertia-DemandInit",
         bare=False, ring=False, c1=0.5, c2=2.5, num_particles=30,
-        inertia=RandomInertia(np.random.default_rng(13)),
+        inertia='random',
         initialization_strategy='demand_proportional')
     
     
@@ -458,7 +458,7 @@ if __name__ == "__main__":
         # use the scenario embedded in kwargs, or fall back to default
         scenario = kwargs.pop("scenario", DEFAULT_SCENARIO)
 
-        print(f"\n{'='*55}")
+        print(f"\n{'='*55}") 
         print(f"  {label}")
         print(f"{'='*55}")
 
