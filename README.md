@@ -7,6 +7,23 @@ https://drive.google.com/drive/folders/1Qi1omTq9SszMGUk6Wu6WtLZA83Gfgpb8?usp=dri
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Member Tasks
 ### Member 1 — Problem Setup, Fitness Function & Constraint Handler
 ## AI420 Project 5: Disaster Relief Resource Allocation
