@@ -40,7 +40,7 @@ https://drive.google.com/drive/folders/1Qi1omTq9SszMGUk6Wu6WtLZA83Gfgpb8?usp=dri
  
 ---
  
-## Are the Files Correctly Linked? ✅ YES
+## Are the Files Correctly Linked?  YES
  
 The dependency chain is:
  
@@ -452,7 +452,7 @@ pip install numpy pygad
 python experiments/run_experiments.py
 ```
 
-> ⚠️ Run from the **root directory** — not from inside `experiments/`. Otherwise the `problem/` imports will fail.
+> Run from the **root directory** — not from inside `experiments/`. Otherwise the `problem/` imports will fail.
 
 **To run the GA engine directly:**
 
